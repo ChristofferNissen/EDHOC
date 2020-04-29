@@ -5,10 +5,10 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>com.mycompany.app</groupId>
-  <artifactId>my-app</artifactId>
+  <artifactId>EDHOC-prototype</artifactId>
   <version>1.0</version>
 
-  <name>my-app</name>
+  <name>EDHOC-prototype</name>
   <!-- FIXME change it to the project's website -->
   <url>http://www.example.com</url>
 
@@ -25,6 +25,19 @@
       <version>4.11</version>
       <scope>test</scope>
     </dependency>
+
+    <dependency>
+      <groupId>com.augustcellars.cose</groupId>
+      <artifactId>cose-java</artifactId>
+      <version>0.9.7</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.fasterxml.jackson.dataformat</groupId>
+      <artifactId>jackson-dataformat-cbor</artifactId>
+      <version>2.9.9</version>
+    </dependency>
+
   </dependencies>
 
   <build>
