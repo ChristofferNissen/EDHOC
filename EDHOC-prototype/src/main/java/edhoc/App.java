@@ -22,13 +22,13 @@ public class App
 		
 		Initiator<BigInteger> initiator = new Initiator<BigInteger>(method, corr, dh, randomSource);
 		Responder<BigInteger> responder = new Responder<BigInteger>(dh, randomSource);
-		int message1 = initiator.createMessage1();
+		BigInteger message1 = initiator.createMessage1();
         
         // send out message two
-		int message2 = responder.createMessage2(message1);
+		BigInteger message2 = responder.createMessage2(message1);
 
         // send out message three
-		int message3 = initiator.createMessage3(message2);
+		BigInteger message3 = initiator.createMessage3(message2);
 
         boolean valid = responder.validateMessage3(message3);
         

@@ -27,7 +27,7 @@ public class Initiator<GT> {
 	}
 
 	// Make message 1 and return it
-	public int createMessage1() {
+	public GT createMessage1() {
 
 		// The Initiator SHALL compose message_1 as follows:
 		// The supported cipher suites and the order of preference MUST NOT be changed
@@ -57,7 +57,7 @@ public class Initiator<GT> {
 		c_i = 0; // Some value
 		g_x = dh.power(dh.generator(), privateComponent);
 		System.out.println( "Initiator sends " + g_x);
-		return 1; //message1
+		return g_x; //message1
 	}
 
 	private byte[] EncodeAsCbor(Message m) throws IOException {
@@ -71,7 +71,10 @@ public class Initiator<GT> {
 	}
 
 	// Receive message 2, make and return message 3
-	public int createMessage3(final int message2) {
-		return 3; //message3
+	public GT createMessage3(final GT message2) {
+		GT g_y = message2; // Parse the message for the value
+		GT key = dh.power(g_y, privateComponent);
+		System.out.println( "Initiator has key " + key);
+		return key; //message3
 	}
 }

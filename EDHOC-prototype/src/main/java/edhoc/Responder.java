@@ -17,7 +17,7 @@ public class Responder<GT> {
 	}
 	
 	// Receive message 1, make and return message 2
-	public int createMessage2(int message1) {
+	public GT createMessage2(GT message1) {
 
 		// validate message 1
 		// The Responder SHALL process message_1 as follows:
@@ -27,17 +27,18 @@ public class Responder<GT> {
 
 		// send response
 
+		GT g_x = message1;
+		GT key = dh.power(g_x, privateComponent);
+		System.out.println("Responder got key: " + key);
+
 		c_r = 0; // Some value
 		g_y = dh.power(dh.generator(), privateComponent);
 		System.out.println( "Responder sends " + g_y);
-		return 2; // message2
+		return g_y; // message2
 	}
 	
 	// Receive message 3, return valid boolean
-	public boolean validateMessage3(int message3) {
-		GT g_x = dh.generator(); // Read from message3
-		GT key = dh.power(g_x, privateComponent);
-		System.out.println("Responder got key: " + key);
+	public boolean validateMessage3(GT message3) {
 		return false;
 	}
 }
