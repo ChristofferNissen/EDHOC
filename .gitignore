@@ -1,3 +1,6 @@
-./EDHOC-prototype/.settings
-./EDHOC-prototype/.project
-./EDHOC-prototype/target/
+**/.classpath
+**/.project
+**/.settings/
+**/target/
+**/.vscode/
+
