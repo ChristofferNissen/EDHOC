@@ -3,6 +3,7 @@ package edhoc;
 import COSE.*;
 
 import java.math.BigInteger;
+import java.security.SecureRandom;
 import java.util.Random;
 
 
@@ -14,7 +15,7 @@ public class App
 {
     public static void main( String[] args )
     {
-		Random randomSource = new Random(42); // Totally perfect source of randomness
+		Random randomSource = new SecureRandom(); 
 		DiffieHellman<BigInteger> dh = new IntegerDiffieHellman(5, 23); // Public parameters. Generator 5, modulus 23
         int method = 0;
         int corr = 3;
