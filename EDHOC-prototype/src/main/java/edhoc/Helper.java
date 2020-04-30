@@ -6,6 +6,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.cbor.CBORFactory;
 
 import edhoc.model.Message;
+import edhoc.model.MessageOne;
+import edhoc.model.MessageThree;
+import edhoc.model.MessageTwo;
 
 public class Helper {
 
@@ -18,12 +21,28 @@ public class Helper {
 		return cborData;
     }
     
-    public static Message DecodeFromCbor(byte[] cborData) throws IOException {
+    public static MessageOne DecodeM1FromCbor(byte[] cborData) throws IOException {
 		final CBORFactory f = new CBORFactory();
 		final ObjectMapper mapper = new ObjectMapper(f);
 		// and then read/write data as usual
-		final Message otherValue = mapper.readValue(cborData, Message.class); 
-		return otherValue;
+		final MessageOne value = mapper.readValue(cborData, MessageOne.class); 
+		return value;
+    }
+    
+    public static MessageTwo DecodeM2FromCbor(byte[] cborData) throws IOException {
+		final CBORFactory f = new CBORFactory();
+		final ObjectMapper mapper = new ObjectMapper(f);
+		// and then read/write data as usual
+		final MessageTwo value = mapper.readValue(cborData, MessageTwo.class); 
+		return value;
+    }
+    
+    public static MessageThree DecodeM3FromCbor(byte[] cborData) throws IOException {
+		final CBORFactory f = new CBORFactory();
+		final ObjectMapper mapper = new ObjectMapper(f);
+		// and then read/write data as usual
+		final MessageThree value = mapper.readValue(cborData, MessageThree.class); 
+		return value;
 	}
 
 }
