@@ -42,7 +42,7 @@ public class Initiator {
 		// Encode message_1 as a sequence of CBOR encoded data items as specified in
 		// Section 4.2.1
 
-		Message m = new MessageOne();
+		Message m = new MessageOne(1);
 
 		suite = 0; // Some value
 		c_i = 0; // Some value
@@ -57,7 +57,6 @@ public class Initiator {
 		cborData = mapper.writeValueAsBytes(m);
 		// final Message otherValue = mapper.readValue(cborData, Message.class); // check it can be read back
 		return cborData;
-
 	}
 
 	// Receive message 2, make and return message 3
