@@ -16,14 +16,22 @@ public class App
     {
 		Random randomSource = new Random(42); // Totally perfect source of randomness
 		DiffieHellman<BigInteger> dh = new IntegerDiffieHellman(5, 23); // Public parameters. Generator 5, modulus 23
+        int method = 0;
+        int corr = 3;
 		
-		Initiator<BigInteger> initiator = new Initiator<BigInteger>(0, 3, dh, randomSource);
+		Initiator<BigInteger> initiator = new Initiator<BigInteger>(method, corr, dh, randomSource);
 		Responder<BigInteger> responder = new Responder<BigInteger>(dh, randomSource);
 		int message1 = initiator.createMessage1();
+        
+        // send out message two
 		int message2 = responder.createMessage2(message1);
+
+        // send out message three
 		int message3 = initiator.createMessage3(message2);
-		boolean valid = responder.validateMessage3(message3);
-		System.out.println("Valid: " + valid);
+
+        boolean valid = responder.validateMessage3(message3);
+        
+        System.out.println("Valid: " + valid);
 		
 		EncryptMessage msg = new EncryptMessage();
 		System.out.println( msg.getRecipientCount() );
