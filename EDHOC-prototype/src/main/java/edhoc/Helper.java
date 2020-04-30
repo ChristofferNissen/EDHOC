@@ -14,48 +14,30 @@ import edhoc.model.MessageTwo;
 
 public class Helper {
 
-    public static byte[] EncodeAsCbor(Message m) throws IOException {
+    public static byte[] encodeAsCbor(Object o) throws IOException {
 		final CBORFactory f = new CBORFactory();
 		final ObjectMapper mapper = new ObjectMapper(f);
 		// and then read/write data as usual
 		byte[] cborData;
-		cborData = mapper.writeValueAsBytes(m);
+		cborData = mapper.writeValueAsBytes(o);
 		return cborData;
     }
     
-    public static MessageOne DecodeM1FromCbor(byte[] cborData) throws IOException {
+    public static Object decodeFromCbor(byte[] cborData, Class<?> cls) throws IOException {
 		final CBORFactory f = new CBORFactory();
 		final ObjectMapper mapper = new ObjectMapper(f);
 		// and then read/write data as usual
-		final MessageOne value = mapper.readValue(cborData, MessageOne.class); 
+		final Object value = mapper.readValue(cborData, cls); 
 		return value;
     }
-    
-    public static MessageTwo DecodeM2FromCbor(byte[] cborData) throws IOException {
-		final CBORFactory f = new CBORFactory();
-		final ObjectMapper mapper = new ObjectMapper(f);
-		// and then read/write data as usual
-		final MessageTwo value = mapper.readValue(cborData, MessageTwo.class); 
-		return value;
-    }
-    
-    public static MessageThree DecodeM3FromCbor(byte[] cborData) throws IOException {
-		final CBORFactory f = new CBORFactory();
-		final ObjectMapper mapper = new ObjectMapper(f);
-		// and then read/write data as usual
-		final MessageThree value = mapper.readValue(cborData, MessageThree.class); 
-		return value;
-	}
 	
 	public static byte[] sha256Hashing(byte[] cborEncodedBytes) {
 		try {
 			final MessageDigest md = MessageDigest.getInstance("SHA-256");
-			final CBORFactory f = new CBORFactory();
-			final ObjectMapper mapper = new ObjectMapper(f);
 			
 			final byte[] hashedBytes = md.digest(cborEncodedBytes);
 			final String hashedString = Base64.getEncoder().encodeToString(hashedBytes);
-			final byte[] encodedHashedString = mapper.writeValueAsBytes(hashedString);
+			final byte[] encodedHashedString = encodeAsCbor(hashedString);
 			return encodedHashedString;
 		} catch (Exception e) {
 			System.out.println("Hashing algorith not valid");

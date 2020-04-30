@@ -29,8 +29,6 @@ public class App
         boolean valid = responder.validateMessage3(message3);
         
         System.out.println("Valid: " + valid);
-        
-        
 		
 		EncryptMessage msg = new EncryptMessage();
 		System.out.println( msg.getRecipientCount() );
