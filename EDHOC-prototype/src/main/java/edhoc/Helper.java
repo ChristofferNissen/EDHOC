@@ -15,7 +15,6 @@ public class Helper {
 		// and then read/write data as usual
 		byte[] cborData;
 		cborData = mapper.writeValueAsBytes(m);
-		// final Message otherValue = mapper.readValue(cborData, Message.class); // check it can be read back
 		return cborData;
     }
     
@@ -23,7 +22,7 @@ public class Helper {
 		final CBORFactory f = new CBORFactory();
 		final ObjectMapper mapper = new ObjectMapper(f);
 		// and then read/write data as usual
-		final Message otherValue = mapper.readValue(cborData, Message.class); // check it can be read back
+		final Message otherValue = mapper.readValue(cborData, Message.class); 
 		return otherValue;
 	}
 
