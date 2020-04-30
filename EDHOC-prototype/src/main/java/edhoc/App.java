@@ -1,8 +1,6 @@
 package edhoc;
 
 import COSE.*;
-import java.util.Base64;
-import java.security.MessageDigest;
 
 /**
  * Hello world!
@@ -37,17 +35,4 @@ public class App
 		EncryptMessage msg = new EncryptMessage();
 		System.out.println( msg.getRecipientCount() );
     }
-	
-	public static byte[] sha256Hashing(byte[] cborEncodedBytes) {
-		try {
-			MessageDigest md = MessageDigest.getInstance("SHA-256");
-			byte[] hashedBytes = md.digest(cborEncodedBytes);
-			String encoded = Base64.getEncoder().encodeToString(hashedBytes);
-			// Encode String with cbor
-			return null; // Return encoded string
-		} catch (Exception e) {
-			System.out.println("Hashing algorith not valid");
-			return null;
-		}
-	}
 }

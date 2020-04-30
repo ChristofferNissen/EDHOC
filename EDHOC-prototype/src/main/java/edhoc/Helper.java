@@ -1,6 +1,8 @@
 package edhoc;
 
 import java.io.IOException;
+import java.util.Base64;
+import java.security.MessageDigest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.cbor.CBORFactory;
@@ -43,6 +45,22 @@ public class Helper {
 		// and then read/write data as usual
 		final MessageThree value = mapper.readValue(cborData, MessageThree.class); 
 		return value;
+	}
+	
+	public static byte[] sha256Hashing(byte[] cborEncodedBytes) {
+		try {
+			final MessageDigest md = MessageDigest.getInstance("SHA-256");
+			final CBORFactory f = new CBORFactory();
+			final ObjectMapper mapper = new ObjectMapper(f);
+			
+			final byte[] hashedBytes = md.digest(cborEncodedBytes);
+			final String hashedString = Base64.getEncoder().encodeToString(hashedBytes);
+			final byte[] encodedHashedString = mapper.writeValueAsBytes(hashedString);
+			return encodedHashedString;
+		} catch (Exception e) {
+			System.out.println("Hashing algorith not valid");
+			return null;
+		}
 	}
 
 }
