@@ -1,6 +1,7 @@
 package edhoc;
 
-import java.math.BigInteger;
+import java.security.KeyPair;
+import java.security.PublicKey;
 import java.util.Random;
 import java.io.IOException;
 
@@ -10,24 +11,25 @@ import com.fasterxml.jackson.dataformat.cbor.CBORFactory;
 import edhoc.model.Message;
 import edhoc.model.MessageOne;
 
-public class Initiator<GT> {
+import static javax.xml.bind.DatatypeConverter.printHexBinary;
+import static javax.xml.bind.DatatypeConverter.parseHexBinary;
+
+public class Initiator {
 	int methodCorr;
 	int suite;
 	int c_i; // bstr / int
-	private GT g_x;
-	private BigInteger privateComponent;
-	private DiffieHellman<GT> dh;
+	private KeyPair keyPair;
+	private DiffieHellman dh;
 
-	public Initiator(int method, int corr, DiffieHellman<GT> dh, Random randomSource) {
+	public Initiator(int method, int corr, DiffieHellman dh) {
 		methodCorr = 4 * method + corr;
-		do privateComponent = new BigInteger(dh.order().bitLength(), randomSource);
-		while(privateComponent.compareTo(dh.order()) >= 0);
-		System.out.println( "Initiator chooses random value " + privateComponent );
+		keyPair = dh.generateKeyPair();
+		System.out.println("Initiator chooses random value " + printHexBinary(keyPair.getPrivate().getEncoded()));
 		this.dh = dh;
 	}
 
 	// Make message 1 and return it
-	public GT createMessage1() {
+	public byte[] createMessage1() {
 
 		// The Initiator SHALL compose message_1 as follows:
 		// The supported cipher suites and the order of preference MUST NOT be changed
@@ -55,9 +57,9 @@ public class Initiator<GT> {
 
 		suite = 0; // Some value
 		c_i = 0; // Some value
-		g_x = dh.power(dh.generator(), privateComponent);
-		System.out.println( "Initiator sends " + g_x);
-		return g_x; //message1
+
+		System.out.println("Initiator sends " + keyPair.getPublic().toString());
+		return keyPair.getPublic().getEncoded(); // message1
 	}
 
 	private byte[] EncodeAsCbor(Message m) throws IOException {
@@ -66,15 +68,17 @@ public class Initiator<GT> {
 		// and then read/write data as usual
 		byte[] cborData;
 		cborData = mapper.writeValueAsBytes(m);
-		// final Message otherValue = mapper.readValue(cborData, Message.class); // check it can be read back
+		// final Message otherValue = mapper.readValue(cborData, Message.class); //
+		// check it can be read back
 		return cborData;
 	}
 
 	// Receive message 2, make and return message 3
-	public GT createMessage3(final GT message2) {
-		GT g_y = message2; // Parse the message for the value
-		GT key = dh.power(g_y, privateComponent);
-		System.out.println( "Initiator has key " + key);
+	public byte[] createMessage3(final byte[] message2) {
+
+		PublicKey pk = dh.decodePublicKey(message2);
+		byte[] key = dh.generateSecret(keyPair.getPrivate(), pk);
+		System.out.println( "Initiator has key " + printHexBinary(key));
 		return key; //message3
 	}
 }

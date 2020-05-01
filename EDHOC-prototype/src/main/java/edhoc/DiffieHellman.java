@@ -1,9 +1,11 @@
 package edhoc;
 
-import java.math.BigInteger;
+import java.security.KeyPair;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 
-public interface DiffieHellman<T> {
-    T generator();
-    BigInteger order();
-    T power(T base, BigInteger exponent);
+public interface DiffieHellman {
+    KeyPair generateKeyPair();
+    PublicKey decodePublicKey(byte[] key);
+    byte[] generateSecret(PrivateKey sk, PublicKey pk);
 }

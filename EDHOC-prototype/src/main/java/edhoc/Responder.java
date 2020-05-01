@@ -1,23 +1,24 @@
 package edhoc;
 
-import java.math.BigInteger;
-import java.util.Random;
+import java.security.KeyPair;
+import java.security.PublicKey;
 
-public class Responder<GT> {
+import static javax.xml.bind.DatatypeConverter.printHexBinary;
+import static javax.xml.bind.DatatypeConverter.parseHexBinary;
+
+public class Responder {
 	int c_r;
-	GT g_y;
-	BigInteger privateComponent;
-	DiffieHellman<GT> dh; 
+	KeyPair keyPair;
+	DiffieHellman dh; 
 
-	public Responder(DiffieHellman<GT> dh, Random randomSource) {
-		do privateComponent = new BigInteger(dh.order().bitLength(), randomSource);
-		while(privateComponent.compareTo(dh.order()) >= 0);
-		System.out.println( "Responder chooses random value " + privateComponent );
+	public Responder(DiffieHellman dh) {
+		keyPair = dh.generateKeyPair();
+		System.out.println("Initiator chooses random value " + printHexBinary(keyPair.getPrivate().getEncoded()));
 		this.dh = dh;
 	}
 	
 	// Receive message 1, make and return message 2
-	public GT createMessage2(GT message1) {
+	public byte[] createMessage2(byte[] message1) {
 
 		// validate message 1
 		// The Responder SHALL process message_1 as follows:
@@ -27,18 +28,17 @@ public class Responder<GT> {
 
 		// send response
 
-		GT g_x = message1;
-		GT key = dh.power(g_x, privateComponent);
-		System.out.println("Responder got key: " + key);
+		PublicKey pk = dh.decodePublicKey(message1);
+		byte[] key = dh.generateSecret(keyPair.getPrivate(), pk);
+		System.out.println("Responder got key: " + printHexBinary(key));
 
 		c_r = 0; // Some value
-		g_y = dh.power(dh.generator(), privateComponent);
-		System.out.println( "Responder sends " + g_y);
-		return g_y; // message2
+		System.out.println( "Responder sends " + keyPair.getPublic());
+		return keyPair.getPublic().getEncoded(); // message2
 	}
 	
 	// Receive message 3, return valid boolean
-	public boolean validateMessage3(GT message3) {
+	public boolean validateMessage3(byte[] message3) {
 		return false;
 	}
 }
