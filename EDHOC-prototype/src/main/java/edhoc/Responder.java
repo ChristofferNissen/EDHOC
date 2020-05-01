@@ -13,7 +13,7 @@ public class Responder {
 
 	public Responder(DiffieHellman dh) {
 		keyPair = dh.generateKeyPair();
-		System.out.println("Initiator chooses random value " + printHexBinary(keyPair.getPrivate().getEncoded()));
+		System.out.println("Responder chooses random value " + printHexBinary(keyPair.getPrivate().getEncoded()));
 		this.dh = dh;
 	}
 	
