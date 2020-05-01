@@ -12,6 +12,7 @@ public class Responder {
 	DiffieHellman dh; 
 
 	public Responder(DiffieHellman dh) {
+		c_r = 0; // Some value
 		keyPair = dh.generateKeyPair();
 		System.out.println("Responder chooses random value " + printHexBinary(keyPair.getPrivate().getEncoded()));
 		this.dh = dh;
@@ -29,10 +30,9 @@ public class Responder {
 		// send response
 
 		PublicKey pk = dh.decodePublicKey(message1);
-		byte[] key = dh.generateSecret(keyPair.getPrivate(), pk);
-		System.out.println("Responder got key: " + printHexBinary(key));
+		byte[] sharedSecret = dh.generateSecret(keyPair.getPrivate(), pk);
+		System.out.println("Responder has shared secret: " + printHexBinary(sharedSecret));
 
-		c_r = 0; // Some value
 		System.out.println( "Responder sends " + keyPair.getPublic());
 		return keyPair.getPublic().getEncoded(); // message2
 	}

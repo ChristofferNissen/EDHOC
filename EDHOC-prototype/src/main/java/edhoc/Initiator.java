@@ -15,17 +15,27 @@ import static javax.xml.bind.DatatypeConverter.printHexBinary;
 import static javax.xml.bind.DatatypeConverter.parseHexBinary;
 
 public class Initiator {
-	int methodCorr;
-	int suite;
+	int methodCorr; // Method and correlation as a single value (specified in message_1)
+	// Cipher Suite consists of: 
+	//	* AEAD Algorithm
+	//	* Hash Algorithm
+	//	* Elliptic Curve
+	//	* Signature Algorithm
+	//	* Signature Algorithm Curve
+	//	* AEAD algorithm
+	//	* Application Hash Algorithm
+	// Represents a specific suite consisting of an ordered set of COSE algorithms
+	int suite = 2; // (AES-CCM-16-64-128, SHA-256, P-256, ES256, P-256, AES-CCM-16-64-128, SHA-256)
 	int c_i; // bstr / int
-	private KeyPair keyPair;
+	private KeyPair keyPair; // Pair of values for G_X and the private component
 	private DiffieHellman dh;
 
 	public Initiator(int method, int corr, DiffieHellman dh) {
 		methodCorr = 4 * method + corr;
+		this.dh = dh;
+
 		keyPair = dh.generateKeyPair();
 		System.out.println("Initiator chooses random value " + printHexBinary(keyPair.getPrivate().getEncoded()));
-		this.dh = dh;
 	}
 
 	// Make message 1 and return it
@@ -55,7 +65,6 @@ public class Initiator {
 
 		Message m = new MessageOne();
 
-		suite = 0; // Some value
 		c_i = 0; // Some value
 
 		System.out.println("Initiator sends " + keyPair.getPublic().toString());
@@ -74,11 +83,12 @@ public class Initiator {
 	}
 
 	// Receive message 2, make and return message 3
-	public byte[] createMessage3(final byte[] message2) {
+	public byte[] createMessage3(byte[] message2) {
+		byte[] g_y = message2; // TODO: Decode from message
 
-		PublicKey pk = dh.decodePublicKey(message2);
-		byte[] key = dh.generateSecret(keyPair.getPrivate(), pk);
-		System.out.println( "Initiator has key " + printHexBinary(key));
-		return key; //message3
+		PublicKey pk = dh.decodePublicKey(g_y);
+		byte[] sharedSecret = dh.generateSecret(keyPair.getPrivate(), pk);
+		System.out.println( "Initiator has shared secret " + printHexBinary(sharedSecret));
+		return sharedSecret; //message3
 	}
 }
