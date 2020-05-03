@@ -29,8 +29,8 @@ public class MessageOneDeserializer extends StdDeserializer<MessageOne> {
         // try catch block
         JsonNode methodNode = node.get("method");
         int method = methodNode.asInt();
-        MessageOne m = new MessageOne(method);
+        // MessageOne m = new MessageOne(method);
 
-        return m;
+        return null;
     }
 }

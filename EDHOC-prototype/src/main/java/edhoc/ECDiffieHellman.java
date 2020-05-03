@@ -10,7 +10,7 @@ import java.security.spec.X509EncodedKeySpec;
 
 import javax.crypto.KeyAgreement;
 
-public class ECDiffieHellman implements DiffieHellman {
+public class ECDiffieHellman {
 
     private KeyPairGenerator kpg;
 
@@ -19,12 +19,10 @@ public class ECDiffieHellman implements DiffieHellman {
         kpg.initialize(keysize);
     }
 
-    @Override
     public KeyPair generateKeyPair() {
         return kpg.generateKeyPair();
     }
 
-    @Override
     public PublicKey decodePublicKey(byte[] key) {
         try {
             KeyFactory kf = KeyFactory.getInstance("EC");
@@ -35,7 +33,6 @@ public class ECDiffieHellman implements DiffieHellman {
         }
     }
 
-    @Override
     public byte[] generateSecret(PrivateKey sk, PublicKey pk) {
         try {
             KeyAgreement ka = KeyAgreement.getInstance("ECDH");

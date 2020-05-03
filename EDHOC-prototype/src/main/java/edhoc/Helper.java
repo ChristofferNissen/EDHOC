@@ -1,5 +1,6 @@
 package edhoc;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.util.Base64;
@@ -8,6 +9,7 @@ import com.fasterxml.jackson.core.Version;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.dataformat.cbor.CBORFactory;
+import com.fasterxml.jackson.dataformat.cbor.CBORParser;
 
 import edhoc.model.Message;
 import edhoc.model.MessageOne;
@@ -26,8 +28,15 @@ public class Helper {
 		byte[] cborData;
 		cborData = mapper.writeValueAsBytes(o);
 		return cborData;
-    }
-    
+	}
+
+	public static byte[] nextByteArray(CBORParser parser) throws IOException {
+		ByteArrayOutputStream stream = new ByteArrayOutputStream();
+		parser.nextToken();
+		parser.readBinaryValue( stream );
+		return stream.toByteArray();
+	}
+
 	public static byte[] sha256Hashing(byte[] cborEncodedBytes) {
 		try {
 			final MessageDigest md = MessageDigest.getInstance("SHA-256");
@@ -42,7 +51,7 @@ public class Helper {
 		}
 	}
 
-    public static Object decodeFromCbor(byte[] cborData, Class<?> cls) throws IOException {
+    public static MessageOne decodeM1FromCbor(byte[] cborData, Class<?> cls) throws IOException {
 		final CBORFactory f = new CBORFactory();
         final ObjectMapper mapper = new ObjectMapper(f);
         SimpleModule module = new SimpleModule("MessageOneDeserializer", new Version(1, 0, 0, null, null, null));
