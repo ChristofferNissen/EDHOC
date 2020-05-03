@@ -63,7 +63,7 @@ public class Initiator {
 		// Encode message_1 as a sequence of CBOR encoded data items as specified in
 		// Section 4.2.1
 
-		Message m = new MessageOne();
+		Message m = new MessageOne(1);
 
 		c_i = 0; // Some value
 

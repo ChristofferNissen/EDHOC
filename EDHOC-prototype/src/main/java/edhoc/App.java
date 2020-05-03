@@ -1,29 +1,12 @@
 package edhoc;
 
-import COSE.*;
+import java.io.IOException;
 
-import java.math.BigInteger;
-import java.security.InvalidKeyException;
-import java.security.KeyFactory;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
+import edhoc.model.Message;
+import edhoc.model.MessageOne;
+import edhoc.model.MessageTwo;
+
 import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
-import java.security.SecureRandom;
-import java.util.Random;
-import java.security.spec.ECParameterSpec;
-import java.security.spec.InvalidKeySpecException;
-import java.security.spec.X509EncodedKeySpec;
-import java.security.interfaces.ECPublicKey;
-
-import javax.crypto.KeyAgreement;
-import java.io.Console;
-import java.nio.ByteBuffer;
-import java.util.*;
-
-import static javax.xml.bind.DatatypeConverter.printHexBinary;
-import static javax.xml.bind.DatatypeConverter.parseHexBinary;
-
 
 /**
  * Hello world!
@@ -33,23 +16,28 @@ public class App
 {
     public static void main( String[] args ) throws NoSuchAlgorithmException
     {
+        // Fixed parameters for our project
 		DiffieHellman dh = new ECDiffieHellman(256); // Keysize 256 for P-256
         int method = 0;
         int corr = 3;
 		
 		Initiator initiator = new Initiator(method, corr, dh);
-		Responder responder = new Responder(dh);
-		byte[] message1 = initiator.createMessage1();
-        
-        // send out message two
-		byte[] message2 = responder.createMessage2(message1);
+        Responder responder = new Responder(dh);
 
-        // send out message three
+		byte[] message1 = initiator.createMessage1();
+		byte[] message2 = responder.createMessage2(message1);
 		byte[] message3 = initiator.createMessage3(message2);
 
-        boolean valid = responder.validateMessage3(message3);
-        
-        System.out.println("Valid: " + valid);
-       
+        MessageTwo m1 = new MessageTwo(1);
+        try {
+            byte[] bytes = Helper.encodeAsCbor(m1);
+            MessageTwo org = Helper.DecodeM2FromCbor(bytes);
+           
+            System.out.println(bytes);
+            System.out.println(m1.getMethod());
+            System.out.println(org.getMethod());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
