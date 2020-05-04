@@ -9,10 +9,7 @@ import com.fasterxml.jackson.dataformat.cbor.CBORGenerator;
 import com.fasterxml.jackson.dataformat.cbor.CBORParser;
 
 import static javax.xml.bind.DatatypeConverter.printHexBinary;
-import static edhoc.Helper.nextByteArray;
-import static edhoc.Helper.sha256Hashing;
-import static edhoc.Helper.mergeArrays;
-import static edhoc.Helper.HMAC_SHA256;
+import static edhoc.Helper.*;
 
 public class Responder {
 	private static final CBORFactory factory = new CBORFactory();
@@ -62,6 +59,13 @@ public class Responder {
 
 		byte[] data2 = createData2();
 		byte[] cipherText2 = createCipherText2(message1, data2);
+
+		// Example encryption remove
+		System.out.println("Data2 length: " + data2.length);
+		byte[] hkdfKey = hkdf(data2.length, hmac);
+		System.out.println( "Encrypted data2: " + printHexBinary(xor(hkdfKey, data2)) );
+
+
 		return mergeArrays(data2, cipherText2);
 	}
 
