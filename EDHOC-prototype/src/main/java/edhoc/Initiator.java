@@ -91,7 +91,7 @@ public class Initiator {
 		// Validation
 		if (validate(pk, c_r, cipherText) == false) return null;
 	
-		return createMessage3();
+		return createMessage3();	
 	}
 
 	// message_3 = (

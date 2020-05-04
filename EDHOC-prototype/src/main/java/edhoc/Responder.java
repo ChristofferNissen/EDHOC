@@ -36,7 +36,6 @@ public class Responder {
 	// Pass AD_1 to the security application.
 	// send response
 	public byte[] createMessage2(byte[] message1) throws IOException {
-		
 		// Decoding
 		CBORParser parser = factory.createParser(message1);
 		int methodCorr = parser.nextIntValue(-1);
@@ -51,10 +50,8 @@ public class Responder {
         byte[] hmac = HMAC_SHA256(new byte[0], sharedSecret);
 		System.out.println("Responder hmac: " + printHexBinary(hmac));
 
-		// Validation
 		if (validate1(methodCorr, suite, pk, c_i, sharedSecret) == false) return null;
 
-		// Send response
 		System.out.println("Responder public key " + keyPair.getPublic());
 
 		byte[] data2 = createData2();
@@ -65,7 +62,6 @@ public class Responder {
 		byte[] th2 = new byte[]{};
 		byte[] hkdfKey = hkdf(data2.length, hmac, makeInfo("XOR-ALGORITHM", data2.length, th2), new byte[0]);
 		System.out.println( "Encrypted data2: " + printHexBinary(xor(hkdfKey, data2)) );
-
 
 		return concat(data2, cipherText2);
 	}

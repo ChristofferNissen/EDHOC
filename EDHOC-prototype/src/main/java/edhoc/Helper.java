@@ -62,6 +62,7 @@ public class Helper {
 		byte[] oKeyPad = xor(key, opad);
 
 		return sha256.digest(concat(oKeyPad, sha256.digest(concat(iKeyPad, message))));
+
 	}
 
 	private static MessageDigest getSHA256Instance() {
@@ -172,17 +173,20 @@ public class Helper {
 	public static byte[] sha256Hashing(byte[] cborEncodedBytes) {
 		try {
 			final MessageDigest md = MessageDigest.getInstance("SHA-256");
+			return md.digest(cborEncodedBytes);
 			
-			final byte[] hashedBytes = md.digest(cborEncodedBytes);
-			final String hashedString = Base64.getEncoder().encodeToString(hashedBytes);
-			final byte[] encodedHashedString = encodeAsCbor(hashedString);
-			return encodedHashedString;
+			// final byte[] hashedBytes = md.digest(cborEncodedBytes);
+			// final String hashedString = Base64.getEncoder().encodeToString(hashedBytes);
+			// final byte[] encodedHashedString = encodeAsCbor(hashedString);
+			// return encodedHashedString;
+
 		} catch (Exception e) {
 			System.out.println("SHA-256 not supported.");
 			return null;
 		}
 	}
 
+	
     public static MessageOne decodeM1FromCbor(byte[] cborData, Class<?> cls) throws IOException {
 		final CBORFactory f = new CBORFactory();
         final ObjectMapper mapper = new ObjectMapper(f);
@@ -218,5 +222,6 @@ public class Helper {
         final MessageThree value = mapper.readValue(cborData, MessageThree.class); 
 		return value;
 	}
+
 
 }
