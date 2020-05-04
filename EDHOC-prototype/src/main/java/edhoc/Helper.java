@@ -21,6 +21,7 @@ import edhoc.model.deserializers.MessageTwoDeserializer;
 
 public class Helper {
 
+	public static final int HASH_LENGTH = 32; // Since we use SHA256
     public static byte[] encodeAsCbor(Object o) throws IOException {
 		final CBORFactory f = new CBORFactory();
 		final ObjectMapper mapper = new ObjectMapper(f);
@@ -48,17 +49,50 @@ public class Helper {
 	public static byte[] HMAC_SHA256(byte[] key, byte[] message) {
 		byte opad = 0x5c;
 		byte ipad = 0x36;
-		int blockSize = 32;
 
-		if (key.length > blockSize)
-			key = sha256Hashing(key);
-		else if (key.length < blockSize)
-			key = pad(key, blockSize);
+		MessageDigest sha256 = getSHA256Instance();
+	
+		if (key.length > HASH_LENGTH)
+			key = sha256.digest(key);
+		else if (key.length < HASH_LENGTH)
+			key = pad(key, HASH_LENGTH);
 
 		byte[] iKeyPad = xor(key, ipad);
 		byte[] oKeyPad = xor(key, opad);
 
-		return sha256Hashing(mergeArrays(oKeyPad, sha256Hashing(mergeArrays(iKeyPad, message))));
+		return sha256.digest(mergeArrays(oKeyPad, sha256.digest(mergeArrays(iKeyPad, message))));
+	}
+
+	private static MessageDigest getSHA256Instance() {
+		MessageDigest md = null;
+		try {
+			md = MessageDigest.getInstance("SHA-256");
+		} catch(Exception e) {
+			System.out.println("SHA-256 for some reason not supported.");
+			return null;
+		}
+		return md;
+	
+	}
+
+	public static byte[] hkdf(int length, byte[] ikm) {
+		return hkdf(length, ikm, new byte[HASH_LENGTH], new byte[0]);
+	}
+
+	public static byte[] hkdf(int length, byte[] ikm, byte[] salt, byte[] info) {
+		byte[] prk = HMAC_SHA256(salt, ikm);
+		byte[] t = new byte[HASH_LENGTH];
+		byte[] okm = new byte[length];
+		int iters = (int) Math.ceil((double)length / HASH_LENGTH);
+		for (int i = 0; i < iters; ++i) {
+			t = HMAC_SHA256(prk, mergeArrays(mergeArrays(t, info), new byte[]{(byte)(1 + i)}));
+
+			for (int j = 0; j < HASH_LENGTH && (j + i *HASH_LENGTH) < length; ++j) {
+				okm[j + i * HASH_LENGTH] = t[j];
+			}
+		}
+
+		return okm;
 	}
 
 	private static byte[] pad(byte[] key, int length) {
