@@ -62,11 +62,12 @@ public class Responder {
 
 		// Example encryption remove
 		System.out.println("Data2 length: " + data2.length);
-		byte[] hkdfKey = hkdf(data2.length, hmac);
+		byte[] th2 = new byte[]{};
+		byte[] hkdfKey = hkdf(data2.length, hmac, makeInfo("XOR-ALGORITHM", data2.length, th2), new byte[0]);
 		System.out.println( "Encrypted data2: " + printHexBinary(xor(hkdfKey, data2)) );
 
 
-		return mergeArrays(data2, cipherText2);
+		return concat(data2, cipherText2);
 	}
 
 	// data_2 = (
@@ -85,7 +86,7 @@ public class Responder {
 	private byte[] createCipherText2(byte[] message1, byte[] data2) throws IOException {
 		ByteArrayOutputStream stream = new ByteArrayOutputStream();
 		CBORGenerator generator = factory.createGenerator(stream);
-		byte[] th2 = sha256Hashing(mergeArrays(message1, data2));
+		byte[] th2 = sha256Hashing(concat(message1, data2));
 		generator.writeBinary(th2); // Temporary, replace with correct signature
 		generator.close();
 		return stream.toByteArray();

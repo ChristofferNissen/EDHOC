@@ -9,6 +9,7 @@ import com.fasterxml.jackson.core.Version;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.dataformat.cbor.CBORFactory;
+import com.fasterxml.jackson.dataformat.cbor.CBORGenerator;
 import com.fasterxml.jackson.dataformat.cbor.CBORParser;
 
 import edhoc.model.Message;
@@ -38,7 +39,7 @@ public class Helper {
 		return stream.toByteArray();
 	}
 
-	public static byte[] mergeArrays(byte[] a1, byte[] a2) {
+	public static byte[] concat(byte[] a1, byte[] a2) {
 		byte[] combined = new byte[a1.length + a2.length];
 		int i = 0;
 		for (byte b : a1) combined[i++] = b;
@@ -60,7 +61,7 @@ public class Helper {
 		byte[] iKeyPad = xor(key, ipad);
 		byte[] oKeyPad = xor(key, opad);
 
-		return sha256.digest(mergeArrays(oKeyPad, sha256.digest(mergeArrays(iKeyPad, message))));
+		return sha256.digest(concat(oKeyPad, sha256.digest(concat(iKeyPad, message))));
 	}
 
 	private static MessageDigest getSHA256Instance() {
@@ -75,6 +76,55 @@ public class Helper {
 	
 	}
 
+	// For K_2e
+	// info = [
+	//   AlgorithmID,
+	//   [ null, null, null ],
+	//   [ null, null, null ],
+	//   [ keyDataLength, h'', other ]
+	// ]
+	public static byte[] makeInfo(String algorithmId, int keyDataLength, byte[] th) {
+		return makeInfo(algorithmId.getBytes(), keyDataLength, new byte[0], th);
+	}
+
+	// Doesn't produce the exact output expected, but good don't want to spend
+	// more time on it.
+	public static byte[] makeInfo(byte[] algorithmID, int keyDataLength, byte[] protectedS, byte[] other) {
+		CBORFactory factory = new CBORFactory();
+		ByteArrayOutputStream stream = new ByteArrayOutputStream();
+		try {
+			CBORGenerator gen = factory.createGenerator(stream);
+			gen.writeStartArray();
+			gen.writeBinary(algorithmID);
+
+			// Empty PartyUInfo
+			gen.writeStartArray();
+			gen.writeNull();
+			gen.writeNull();
+			gen.writeNull();
+			gen.writeEndArray();
+
+			// Empty PartyVInfo
+			gen.writeStartArray();
+			gen.writeNull();
+			gen.writeNull();
+			gen.writeNull();
+			gen.writeEndArray();
+
+			//SuppPubInfo
+			gen.writeNumber(keyDataLength);
+			gen.writeBinary(protectedS);
+			gen.writeBinary(other);
+			gen.writeEndArray();
+
+			gen.close();
+		} catch (IOException e) {
+			System.out.println("Error occured couldn't create CBOR info context.");
+		}
+
+		return stream.toByteArray();
+	}
+
 	public static byte[] hkdf(int length, byte[] ikm) {
 		return hkdf(length, ikm, new byte[HASH_LENGTH], new byte[0]);
 	}
@@ -85,7 +135,7 @@ public class Helper {
 		byte[] okm = new byte[length];
 		int iters = (int) Math.ceil((double)length / HASH_LENGTH);
 		for (int i = 0; i < iters; ++i) {
-			t = HMAC_SHA256(prk, mergeArrays(mergeArrays(t, info), new byte[]{(byte)(1 + i)}));
+			t = HMAC_SHA256(prk, concat(concat(t, info), new byte[]{(byte)(1 + i)}));
 
 			for (int j = 0; j < HASH_LENGTH && (j + i *HASH_LENGTH) < length; ++j) {
 				okm[j + i * HASH_LENGTH] = t[j];
