@@ -10,6 +10,9 @@ import com.fasterxml.jackson.dataformat.cbor.CBORParser;
 
 import static javax.xml.bind.DatatypeConverter.printHexBinary;
 import static edhoc.Helper.nextByteArray;
+import static edhoc.Helper.sha256Hashing;
+import static edhoc.Helper.mergeArrays;
+import static edhoc.Helper.HMAC_SHA256;
 
 public class Responder {
 	private static final CBORFactory factory = new CBORFactory();
@@ -47,36 +50,41 @@ public class Responder {
 
 		byte[] sharedSecret = dh.generateSecret(keyPair.getPrivate(), dh.decodePublicKey(pk));
 		System.out.println("Responder has shared secret: " + printHexBinary(sharedSecret));
+		
+        byte[] hmac = HMAC_SHA256(new byte[0], sharedSecret);
+		System.out.println("Responder hmac: " + printHexBinary(hmac));
 
 		// Validation
 		if (validate1(methodCorr, suite, pk, c_i, sharedSecret) == false) return null;
 
 		// Send response
 		System.out.println("Responder public key " + keyPair.getPublic());
-		return createMessage2();
-	}
 
-	private byte[] createMessage2() throws IOException {
-		ByteArrayOutputStream stream = new ByteArrayOutputStream();
-		CBORGenerator generator = factory.createGenerator(stream);
-		writeData2(generator);
-		writeCipherText(generator);
-		generator.close();
-		return stream.toByteArray();
+		byte[] data2 = createData2();
+		byte[] cipherText2 = createCipherText2(message1, data2);
+		return mergeArrays(data2, cipherText2);
 	}
 
 	// data_2 = (
 	//   G_Y : bstr,
 	//   C_R : bstr_identifier,
 	// )
-	private void writeData2(CBORGenerator generator) throws IOException {
+	private byte[] createData2() throws IOException {
+		ByteArrayOutputStream stream = new ByteArrayOutputStream();
+		CBORGenerator generator = factory.createGenerator(stream);
 		generator.writeBinary(keyPair.getPublic().getEncoded()); 
 		generator.writeNumber(c_r);
+		generator.close();
+		return stream.toByteArray();
 	}
 
-	private void writeCipherText(CBORGenerator generator) throws IOException {
-		// TODO: Create
-		generator.writeNull();
+	private byte[] createCipherText2(byte[] message1, byte[] data2) throws IOException {
+		ByteArrayOutputStream stream = new ByteArrayOutputStream();
+		CBORGenerator generator = factory.createGenerator(stream);
+		byte[] th2 = sha256Hashing(mergeArrays(message1, data2));
+		generator.writeBinary(th2); // Temporary, replace with correct signature
+		generator.close();
+		return stream.toByteArray();
 	}
 
 	private boolean validate1(int methodCorr, int suite, byte[] pkBytes, int c_i, byte[] sharedSecret) {
@@ -94,14 +102,14 @@ public class Responder {
 	public boolean validateMessage3(byte[] message3) throws IOException {
 		// Decode
 		CBORParser parser = factory.createParser(message3);
-		Object cipherText3 = nextCipherText(parser);
+		Object cipherText3 = nextCipherText3(parser);
 		parser.close();
 
 		// Validate
 		return validate3(cipherText3);
 	}
 
-	private Object nextCipherText(CBORParser parser) {
+	private Object nextCipherText3(CBORParser parser) {
 		// TODO: Create
 		return null;
 	}
