@@ -37,6 +37,54 @@ public class Helper {
 		return stream.toByteArray();
 	}
 
+	public static byte[] mergeArrays(byte[] a1, byte[] a2) {
+		byte[] combined = new byte[a1.length + a2.length];
+		int i = 0;
+		for (byte b : a1) combined[i++] = b;
+		for (byte b : a2) combined[i++] = b;
+		return combined;
+	}
+
+	public static byte[] HMAC_SHA256(byte[] key, byte[] message) {
+		byte opad = 0x5c;
+		byte ipad = 0x36;
+		int blockSize = 32;
+
+		if (key.length > blockSize)
+			key = sha256Hashing(key);
+		else if (key.length < blockSize)
+			key = pad(key, blockSize);
+
+		byte[] iKeyPad = xor(key, ipad);
+		byte[] oKeyPad = xor(key, opad);
+
+		return sha256Hashing(mergeArrays(oKeyPad, sha256Hashing(mergeArrays(iKeyPad, message))));
+	}
+
+	private static byte[] pad(byte[] key, int length) {
+		byte[] paddedKey = new byte[length];
+		int i = 0;
+		for (byte b : key) paddedKey[i++] = b;
+		return paddedKey;
+	}
+
+	public static byte[] xor(byte[] a1, byte[] a2) {
+		if (a1.length != a2.length) throw new IllegalArgumentException("Can't XOR different sized arrays");
+		
+		byte[] result = new byte[a1.length];
+		for (int i = 0; i < a1.length; ++i) {
+		 	result[i] = (byte)(a1[i] ^ a2[i]);
+		}
+		return result;
+	}
+
+	private static byte[] xor(byte[] val, byte pad) {
+		byte[] result = new byte[val.length];
+		int i = 0;
+		for (Byte b : val) result[i++] = (byte)(b ^ pad);
+		return result;
+	}
+
 	public static byte[] sha256Hashing(byte[] cborEncodedBytes) {
 		try {
 			final MessageDigest md = MessageDigest.getInstance("SHA-256");
