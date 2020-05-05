@@ -92,8 +92,11 @@ public class Responder {
 		// Compute the transcript hash TH_2 = H(message_1, data_2) where H() is the hash function
 		// in the selected cipher suite. The transcript hash TH_2 is a CBOR encoded bstr and 
 		// the input to the hash function is a CBOR Sequence.
+		// suite 2: hash function = SHA-256
 	
-		
+		// byte[] th2 = sha256Hashing(concat(message1, data2)); 
+
+
 			
 		// Compute an inner COSE_Encrypt0 as defined in Section 5.3 of [RFC8152], with 
 		// the EDHOC AEAD algorithm in the selected cipher suite, K_2m, IV_2m and the following parameters:
@@ -110,21 +113,20 @@ public class Responder {
 			// MAC_2 is the 'ciphertext' of the inner COSE_Encrypt0
 		
 		// If the Responder authenticates with a static Diffie-Hellman key (method equals 1 or 3),
-		// then SIgnature_or_MAC_2 is MAC_2.
-
-
+		// then Signature_or_MAC_2 is MAC_2.
 
 		// CIPHERTEXT_2 is the ciphertext resulting from XOR encrypting a plaintext with 
 		// the following common parameters: 
 			// plaintext = (ID_CRED_R / bstr_identifier, Signature_or_MAC_2, ? AD_2)
 	
-			// CIPHERTEXT_2 = plaintext XOR k_2e
+			// CIPHERTEXT_2 = plaintext XOR K_2e
 				// The key K_2e is derived using the pseudorandom key PRK_2e, 
 				// AlgorithmID = "XOR-ENCRYPTION", keyDataLength = plaintext length, 
 				// protected = h''(empty bstr) and other = TH_2 
 
 		byte[] data2 = createData2();
 		byte[] cipherText2 = createCipherText2(message1, data2);
+
 
 
 
