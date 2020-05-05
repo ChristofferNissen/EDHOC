@@ -119,6 +119,7 @@ public class Helper {
 			gen.writeEndArray();
 
 			gen.close();
+			
 		} catch (IOException e) {
 			System.out.println("Error occured couldn't create CBOR info context.");
 		}
@@ -174,7 +175,7 @@ public class Helper {
 		try {
 			final MessageDigest md = MessageDigest.getInstance("SHA-256");
 			return md.digest(cborEncodedBytes);
-			
+
 			// final byte[] hashedBytes = md.digest(cborEncodedBytes);
 			// final String hashedString = Base64.getEncoder().encodeToString(hashedBytes);
 			// final byte[] encodedHashedString = encodeAsCbor(hashedString);

@@ -36,13 +36,46 @@ public class Responder {
 	// Pass AD_1 to the security application.
 	// send response
 	public byte[] createMessage2(byte[] message1) throws IOException {
-		// Decoding
+
+		// Responder Processing of Message 1
+
+		// Decode message_1 (see Appendix A.1)
 		CBORParser parser = factory.createParser(message1);
-		int methodCorr = parser.nextIntValue(-1);
-		int suite = parser.nextIntValue(-1);
-		byte[] pk = nextByteArray(parser);
-		int c_i = parser.nextIntValue(-1);
+		int methodCorr = parser.nextIntValue(-1); 	// int
+		int suite = parser.nextIntValue(-1);		// int
+		byte[] pk = nextByteArray(parser);			// bstr
+		int c_i = parser.nextIntValue(-1);			// bstr_identifier
 		parser.close();
+
+		// Verify the selected cipher suite is supported and that no prior cipher suites in SUITES_I are supported.
+		// Skipped
+
+		// PASS AD_1 to the security application
+		// Skipped
+
+		System.out.println("Responder processed message._1");
+
+
+
+		// Responder Processing of Message 2
+		System.out.println("Responder processing message._2");
+
+		// If corr (METHOD_CORR mod 4) equals 1 or 3, c_I is omitted, otherwise C_I is not omitted.
+		// boolean omitCI = methodCorr % 4 == 1 || methodCorr % 4 == 3; 
+
+		// Generate an ephemeral ECDH key pair as specified in Section 5 of [SP-800-56A] using 
+		// the curve in the selected cipher suite and format it as a COSE_Key.
+		// Let G_Y be the 'x' parameter of the COSE_Key.
+		// Done in constructor
+		
+		// Choose a connection identifier C_R and store it for the length of the protocol
+		// Done in constructor: class variable c_r = 7
+
+
+		// When using a static Diffie-Hellmann key the authentication is provided by a Message 
+		// Authentication code (MAC) computed from an emphemeral-static ECDH shared secret which
+		// enables significant reductions in message sizes. The MAC is implemented with an AEAD 
+		// algorithm.
 
 		byte[] sharedSecret = dh.generateSecret(keyPair.getPrivate(), dh.decodePublicKey(pk));
 		System.out.println("Responder has shared secret: " + printHexBinary(sharedSecret));
@@ -50,12 +83,50 @@ public class Responder {
         byte[] hmac = HMAC_SHA256(new byte[0], sharedSecret);
 		System.out.println("Responder hmac: " + printHexBinary(hmac));
 
+
 		if (validate1(methodCorr, suite, pk, c_i, sharedSecret) == false) return null;
 
 		System.out.println("Responder public key " + keyPair.getPublic());
 
+
+		// Compute the transcript hash TH_2 = H(message_1, data_2) where H() is the hash function
+		// in the selected cipher suite. The transcript hash TH_2 is a CBOR encoded bstr and 
+		// the input to the hash function is a CBOR Sequence.
+	
+		
+			
+		// Compute an inner COSE_Encrypt0 as defined in Section 5.3 of [RFC8152], with 
+		// the EDHOC AEAD algorithm in the selected cipher suite, K_2m, IV_2m and the following parameters:
+			// - protected = <<ID_CRED_R>>
+			// - external_aad = <<TH_2, CRED_R, ? AD_2 >>
+			// - plaintext = h'' (empty bstr)
+
+			// COSE constructs the input to the AEAD [RFC5116] as follows
+			// Key K = K_2m
+			// Nonce N = IV_2m
+			// Plaintext P = 0x (the empty string)
+			// Associated data A = ["Encrypt0", <<ID_CRED_R>>,<<TH_2, CRED_R, ? AD_2 >>]
+
+			// MAC_2 is the 'ciphertext' of the inner COSE_Encrypt0
+		
+		// If the Responder authenticates with a static Diffie-Hellman key (method equals 1 or 3),
+		// then SIgnature_or_MAC_2 is MAC_2.
+
+
+
+		// CIPHERTEXT_2 is the ciphertext resulting from XOR encrypting a plaintext with 
+		// the following common parameters: 
+			// plaintext = (ID_CRED_R / bstr_identifier, Signature_or_MAC_2, ? AD_2)
+	
+			// CIPHERTEXT_2 = plaintext XOR k_2e
+				// The key K_2e is derived using the pseudorandom key PRK_2e, 
+				// AlgorithmID = "XOR-ENCRYPTION", keyDataLength = plaintext length, 
+				// protected = h''(empty bstr) and other = TH_2 
+
 		byte[] data2 = createData2();
 		byte[] cipherText2 = createCipherText2(message1, data2);
+
+
 
 		// Example encryption remove
 		System.out.println("Data2 length: " + data2.length);
@@ -63,7 +134,11 @@ public class Responder {
 		byte[] hkdfKey = hkdf(data2.length, hmac, makeInfo("XOR-ALGORITHM", data2.length, th2), new byte[0]);
 		System.out.println( "Encrypted data2: " + printHexBinary(xor(hkdfKey, data2)) );
 
+
+
+		// Encode message_2 as a sequence of CBOR encoded data items as specified in Section 4.3.1.
 		return concat(data2, cipherText2);
+
 	}
 
 	// data_2 = (
@@ -82,14 +157,16 @@ public class Responder {
 	private byte[] createCipherText2(byte[] message1, byte[] data2) throws IOException {
 		ByteArrayOutputStream stream = new ByteArrayOutputStream();
 		CBORGenerator generator = factory.createGenerator(stream);
-		byte[] th2 = sha256Hashing(concat(message1, data2));
-		generator.writeBinary(th2); // Temporary, replace with correct signature
+
+		byte[] th2 = sha256Hashing(concat(message1, data2)); // Temporary, replace with correct signature
+		
+		generator.writeBinary(th2); 
 		generator.close();
 		return stream.toByteArray();
+
 	}
 
 	private boolean validate1(int methodCorr, int suite, byte[] pkBytes, int c_i, byte[] sharedSecret) {
-		// TODO: More validation
 		boolean isInvalid = methodCorr == -1 || suite == -1 || c_i == -1;
 
 		if (isInvalid) {

@@ -37,6 +37,7 @@ public class Initiator {
 
 		keyPair = dh.generateKeyPair();
 		System.out.println("Initiator chooses random value " + printHexBinary(keyPair.getPrivate().getEncoded()));
+
 	}
 
 	// The Initiator SHALL compose message_1 as follows:
@@ -61,19 +62,34 @@ public class Initiator {
 	// Encode message_1 as a sequence of CBOR encoded data items as specified in
 	// Section 4.2.1
 	public byte[] createMessage1() throws IOException {
-		// Encode and send
+
+		// Initiator Processing of Message 1
+		System.out.println("Initiator processing message._1");
+
+		// The supported cipher suites ... Skipped
+
+		// Determine the cipher suites to use with the Responder in message_1. 
+		// We have just picked a suite. Which?
+
+		// Generate an ephemeral ECDH key pair as specified in Section 5 of [SP-800-56A]
+		// using the curve in the selected cipher suite and format it as a COSE_Key. 
+		// Let G_X be the 'x' parameter of the COSE_Key
 		PublicKey pk = keyPair.getPublic();
 		System.out.println("Initiator public key " + pk);
 
+		// Choose a connection identifier C_I and store it for the length of the protocol
+		// c_i = 5
+
+		// Encode message_1 as a sequence of CBOR encoded data items as specified in Section 4.2.1.
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
 		CBORGenerator generator = factory.createGenerator(stream);
-		generator.writeNumber(methodCorr);
-		generator.writeNumber(suite);
-		generator.writeBinary(pk.getEncoded());
-		generator.writeNumber(c_i);
-		generator.close();
-		
+		generator.writeNumber(methodCorr);				// METHOD_CORR : int
+		generator.writeNumber(suite);					// SUITES_I : int datatype, only array with multiple suites
+		generator.writeBinary(pk.getEncoded());			// G_X : bstr
+		generator.writeNumber(c_i);						// C_I : bstr_identifier
+		generator.close();								
 		return stream.toByteArray();
+
 	}
 
 	// Receive message 2, make and return message 3
