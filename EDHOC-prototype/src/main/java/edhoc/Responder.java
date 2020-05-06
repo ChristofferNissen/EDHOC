@@ -126,6 +126,7 @@ public class Responder {
 
 		System.out.println("msg encoded = " + printHexBinary(MAC_2) );
 
+		
 
 		Sign1Message M = new Sign1Message();
 		M.addAttribute(HeaderKeys.Algorithm, AlgorithmID.ECDSA_256.AsCBOR(), Attribute.DO_NOT_SEND); // ES256 over the curve P-256
