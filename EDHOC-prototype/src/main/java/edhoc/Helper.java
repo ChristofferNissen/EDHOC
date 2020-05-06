@@ -78,6 +78,9 @@ public class Helper {
 		return makeInfo(new byte[]{algorithmId}, keyDataLength, new byte[]{0x40}, th);
 	}
 
+	public static byte[] makeInfo(String algorithmId, int keyDataLength, byte[] protectedS, byte[] th) {
+		return makeInfo(algorithmId.getBytes(), keyDataLength, protectedS, th);
+	}
 	// Doesn't produce the exact output expected, but good don't want to spend
 	// more time on it.
 	public static byte[] makeInfo(byte[] algorithmID, int keyDataLength, byte[] protectedS, byte[] other) {

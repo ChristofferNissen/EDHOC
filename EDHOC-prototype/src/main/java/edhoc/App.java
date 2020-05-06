@@ -66,5 +66,6 @@ public class App {
 
         System.out.println("Initiator sends: " + printHexBinary(message3) + "\n");
 
+        responder.validateMessage3(message3);
     }
 }

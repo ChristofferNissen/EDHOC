@@ -31,6 +31,8 @@ public class Responder {
 	byte[] ID_CRED_R = new byte[]{0x14};
 	byte[] ID_CRED_I = new byte[]{0x23};
 
+	byte[] CIPHERTEXT_2 = null;
+	byte[] TH_2 = null;
 	KeyPair signatureKeyPair;
 	byte[] CRED_R;
 	PublicKey initiatorPk;
@@ -94,8 +96,11 @@ public class Responder {
 	}
 
 	private byte[] createCipherText2(byte[] message1, byte[] data2) throws IOException, CoseException {
-		byte[] TH_2 = SHA256(concat(message1, data2));
+		TH_2 = SHA256(concat(message1, data2));
+
+		// Used to derive key and IV to encrypt message_2
 		byte[] PRK_2e = HMAC_SHA256(G_XY, new byte[0]); // Salt is empty since we authenticate using asymmetric keys
+		// Used to derive keys and produce a mac in message_2
 		byte[] PRK_3e2m = PRK_2e; // Since responder doesn't authenticate with a static DH key. 
 		int L = 64; // Since we use cipher suite 2
 		int IV_L = L / 8;
@@ -107,13 +112,14 @@ public class Responder {
 		msg.setExternal( concat(TH_2, keyPair.getPrivate().getEncoded()) ); // external_aad = << TH_2, CRED_R >>
 		msg.SetContent(""); // plaintext = h''
 
-		byte[] IV_2m_info = makeInfo("IV-GENERATION", IV_L, TH_2);
+		byte[] COSE_Encrypt0_protected = msg.getProtectedAttributes().EncodeToBytes();
+		byte[] IV_2m_info = makeInfo("IV-GENERATION", IV_L, COSE_Encrypt0_protected, TH_2);
 		byte[] IV_2m = hkdf(IV_L, PRK_3e2m, new byte[0], IV_2m_info);
-		msg.addAttribute(HeaderKeys.IV, IV_2m, Attribute.DO_NOT_SEND);
+		msg.addAttribute(HeaderKeys.IV, CBORObject.FromObject(IV_2m), Attribute.DO_NOT_SEND);
 
 		byte algorithmID = 10; // 10 refers to our algorithm AES_CCM_16_64_128(__10__, 128, 64),
-		byte[] K_2m_info = makeInfo(new byte[]{algorithmID}, K_2m_L, TH_2, msg.getProtectedAttributes().EncodeToBytes()); 
-		byte[] K_2m = hkdf(K_2m_L, PRK_2e, new byte[0], K_2m_info);
+		byte[] K_2m_info = makeInfo(new byte[]{algorithmID}, K_2m_L, COSE_Encrypt0_protected, TH_2); 
+		byte[] K_2m = hkdf(K_2m_L, PRK_3e2m, new byte[0], K_2m_info);
 		msg.encrypt(K_2m);
 
 		byte[] MAC_2 = msg.EncodeToBytes();
@@ -144,11 +150,11 @@ public class Responder {
 		byte[] K_2e_info = makeInfo("XOR-ENCRYPTION", plaintext.length, TH_2);
 		byte[] K_2e = hkdf(plaintext.length, PRK_2e, new byte[0], K_2e_info);
 
-		byte[] ciphertext = xor(K_2e, plaintext);
+		CIPHERTEXT_2 = xor(K_2e, plaintext);
 
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
 		CBORGenerator generator = factory.createGenerator(stream);
-		generator.writeBinary(ciphertext);
+		generator.writeBinary(CIPHERTEXT_2);
 		generator.close();
 
 		return stream.toByteArray();
@@ -165,15 +171,66 @@ public class Responder {
 		return !isInvalid;
 	}
 
+	public static final int AES_CCM_16_IV_LENGTH = 13;
+
 	// Receive message 3, return valid boolean
-	public boolean validateMessage3(byte[] message3) throws IOException {
-		// Decode
+	public boolean validateMessage3(byte[] message3) throws IOException, CoseException {
+		// Decoding
 		CBORParser parser = factory.createParser(message3);
-		Object cipherText3 = nextCipherText3(parser);
+		byte[] CIPHERTEXT_3 = nextByteArray(parser);
 		parser.close();
 
-		// Validate
-		return validate3(cipherText3);
+		byte algorithmID = 10;
+		int L = 64; // Since we use cipher suite 2
+		int K_L = L / 4;
+
+		Encrypt0Message outer_encrypt0 = (Encrypt0Message) Encrypt0Message.DecodeFromBytes(CIPHERTEXT_3);
+		outer_encrypt0.addAttribute(HeaderKeys.Algorithm, AlgorithmID.AES_CCM_16_64_128.AsCBOR(), Attribute.DO_NOT_SEND); // AEAD Algorithm
+		
+		byte[] TH_3 = SHA256(concat(TH_2, CIPHERTEXT_2));
+		byte[] PRK_3e2m = HMAC_SHA256(G_XY, new byte[0]); // Salt is empty since we authenticate using asymmetric keys
+
+		outer_encrypt0.setExternal(TH_3);
+
+		System.out.println( AlgorithmID.AES_CCM_16_64_128.getTagSize() );
+
+		byte[] IV_3ae_info = makeInfo("IV-GENERATION", AES_CCM_16_IV_LENGTH, outer_encrypt0.getProtectedAttributes().EncodeToBytes(), TH_3);
+		byte[] IV_3ae = hkdf(AES_CCM_16_IV_LENGTH, PRK_3e2m, new byte[0], IV_3ae_info);
+
+		outer_encrypt0.addAttribute(HeaderKeys.IV, CBORObject.FromObject(IV_3ae), Attribute.DO_NOT_SEND);
+
+		byte[] K_3ae_info = makeInfo(new byte[]{algorithmID}, K_L, outer_encrypt0.getProtectedAttributes().EncodeToBytes(), TH_3);
+		byte[] K_3ae = hkdf(K_L, PRK_3e2m, new byte[0], K_3ae_info);
+
+
+		System.out.println( "Responder K_3ae = " + printHexBinary(K_3ae) );
+
+		byte[] plaintext = outer_encrypt0.decrypt(K_3ae);
+
+		System.out.println( "Responder gets plaintext = " + printHexBinary(plaintext) );
+
+		System.out.println("Correctly identified the other party: " + (plaintext[0] == ID_CRED_I[0]) );
+		byte[] CRED_R = initiatorPk.getEncoded();
+		System.out.println("Responder connects " + printHexBinary(ID_CRED_I) + " to key " + printHexBinary(CRED_R));
+
+		byte[] signature = new byte[plaintext.length-1];
+		for (int i = 1; i < plaintext.length; ++i) {
+			signature[i-1] = plaintext[i];
+		}
+
+
+		Sign1Message M = (Sign1Message) Sign1Message.DecodeFromBytes(signature);
+		M.addAttribute(HeaderKeys.Algorithm, AlgorithmID.ECDSA_256.AsCBOR(), Attribute.DO_NOT_SEND); // ES256 over the curve P-256
+
+		byte[] CRED_I = initiatorPk.getEncoded();
+		byte[] external = concat(TH_3, CRED_I);
+		M.setExternal( external ); // external_aad = << TH_2, CRED_R >>
+
+		System.out.println( "External data = " + printHexBinary(external));
+		System.out.println( "Received signature = " + printHexBinary(signature));
+		System.out.println( "Signature is valid: " + M.validate(new OneKey(initiatorPk, null)) );
+
+		return true;
 	}
 
 	private Object nextCipherText3(CBORParser parser) {
