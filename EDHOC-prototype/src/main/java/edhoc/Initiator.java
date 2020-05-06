@@ -182,19 +182,37 @@ public class Initiator {
 
 		// If the Initiator authenticates with a static Diffie-Hellman key (method equals 2 or 3)
 		// then the Signature_or_MAC_3 is MAC_3.
-		
-
 
 		// Compute an outer COSE_Encrypt0 as defined in Section 5.3
 		// CIPHERTEXT_3 is the 'ciphertext' of the outer COSE_Encrypt0
 
-		// Encode message3 as a sequence of CBOR encoded data items as specified in Section 4.4.1
+		Encrypt0Message outer = new Encrypt0Message();
+		outer.addAttribute(HeaderKeys.Algorithm, AlgorithmID.AES_CCM_16_64_128.AsCBOR(), Attribute.DO_NOT_SEND);
+		outer.setExternal( concat(TH_3, keyPair.getPrivate().getEncoded()) ); // external_aad = << TH_2, CRED_R >>
+		outer.SetContent(ID_CRED_I + "," + MAC_3);
 
+		// IV_3ae
+		// Nonce IV_3ae is the output of HKDF-Expand(PRK_3e2m, info, L). PRK_3e2m = PRK_2e for asymmetric
+		byte[] IV_3ae_info = makeInfo("IV-GENERATION", IV_L, TH_3);
+		byte[] IV_3ae = hkdf(IV_L, PRK_2e, new byte[0], IV_3ae_info);
+		outer.addAttribute(HeaderKeys.IV, IV_3ae, Attribute.DO_NOT_SEND);
 
+		// K_3ae
+		byte[] K_3ae_info = makeInfo(new byte[]{algorithmID}, K_3m_L, TH_3, outer.getProtectedAttributes().EncodeToBytes()); 
+		byte[] K_3ae = hkdf(K_3m_L, PRK_2e, new byte[0], K_3ae_info);
+		outer.encrypt(K_3ae);
+
+		byte[] data_3 = new byte[0];
+		byte[] CIPHERTEXT_3 = outer.EncodeToBytes();
+
+		
 		// Validation
-		if (validate(pk, c_r, CIPHERTEXT_2) == false) return null;
-	
-		return createMessage3();	
+		if (validate(pk, c_r, CIPHERTEXT_3) == false) return null;
+		
+		// Encode message3 as a sequence of CBOR encoded data items as specified in Section 4.4.1
+		// return createMessage3();	
+		return concat(data_3, CIPHERTEXT_3);
+
 	}
 
 	private byte[] createData2(int c_r, byte[] pk) throws IOException {
