@@ -234,13 +234,4 @@ public class Responder {
 		return true;
 	}
 
-	private Object nextCipherText3(CBORParser parser) {
-		// TODO: Create
-		return null;
-	}
-
-	private boolean validate3(Object cipherText) {
-		// TODO: Create
-		return false;
-	}
 }

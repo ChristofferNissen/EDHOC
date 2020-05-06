@@ -1,26 +1,16 @@
 package edhoc;
 
+import static javax.xml.bind.DatatypeConverter.printHexBinary;
+
 import java.io.IOException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.Security;
 
-import javax.crypto.Cipher;
-import javax.crypto.NoSuchPaddingException;
-
-import com.upokecenter.cbor.CBORObject;
-
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
-import COSE.AlgorithmID;
-import COSE.Attribute;
 import COSE.CoseException;
-import COSE.Encrypt0Message;
-import COSE.HeaderKeys;
-
-import static javax.xml.bind.DatatypeConverter.printHexBinary;
-import static edhoc.Helper.*;
 
 public class App {
     public static void main(String[] args) throws NoSuchAlgorithmException, IOException, CoseException {
