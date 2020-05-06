@@ -4,7 +4,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.security.MessageDigest;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.cbor.CBORFactory;
 import com.fasterxml.jackson.dataformat.cbor.CBORGenerator;
 import com.fasterxml.jackson.dataformat.cbor.CBORParser;
@@ -12,14 +11,9 @@ import com.fasterxml.jackson.dataformat.cbor.CBORParser;
 public class Helper {
 
 	public static final int HASH_LENGTH = 32; // Since we use SHA256
-    public static byte[] encodeAsCbor(Object o) throws IOException {
-		final CBORFactory f = new CBORFactory();
-		final ObjectMapper mapper = new ObjectMapper(f);
-		// and then read/write data as usual
-		byte[] cborData;
-		cborData = mapper.writeValueAsBytes(o);
-		return cborData;
-	}
+	public static final byte[] EMPTY_BYTESTRING = new byte[]{0x40}; 
+	public static final byte AEAD_ALGORITHM_ID = 0x10;
+	public static final byte HMAC_ALGORITHM_ID = 0x5;
 
 	public static byte[] nextByteArray(CBORParser parser) throws IOException {
 		ByteArrayOutputStream stream = new ByteArrayOutputStream();
@@ -67,13 +61,6 @@ public class Helper {
 	
 	}
 
-	// For K_2e
-	// info = [
-	//   AlgorithmID,
-	//   [ null, null, null ],
-	//   [ null, null, null ],
-	//   [ keyDataLength, h'', other ]
-	// ]
 	public static byte[] makeInfo(String algorithmId, int keyDataLength, byte[] th) {
 		return makeInfo(algorithmId.getBytes(), keyDataLength, new byte[]{0x40}, th);
 	}
@@ -85,8 +72,13 @@ public class Helper {
 	public static byte[] makeInfo(String algorithmId, int keyDataLength, byte[] protectedS, byte[] th) {
 		return makeInfo(algorithmId.getBytes(), keyDataLength, protectedS, th);
 	}
-	// Doesn't produce the exact output expected, but good don't want to spend
-	// more time on it.
+
+	// info = [
+	// 	AlgorithmID,
+	// 	[ null, null, null ],
+	// 	[ null, null, null ],
+	// 	[ keyDataLength, protected, other ]
+	// ]
 	public static byte[] makeInfo(byte[] algorithmID, int keyDataLength, byte[] protectedS, byte[] other) {
 		CBORFactory factory = new CBORFactory();
 		ByteArrayOutputStream stream = new ByteArrayOutputStream();
@@ -176,5 +168,18 @@ public class Helper {
 			System.in.read();
 		} catch (IOException _) {}
 		System.out.println(msg);
+	}
+
+
+	// For K_2e
+	// info = [
+	//   "XOR-ENCRYPTION",
+	//   [ null, null, null ],
+	//   [ null, null, null ],
+	//   [ plaintextLength, h'', TH_2 ]
+	// ]
+	public static byte[] makeK_2e(byte[] PRK_2e, byte[] TH_2, int length) {
+		byte[] K_2e_info = makeInfo("XOR-ENCRYPTION", length, EMPTY_BYTESTRING, TH_2);
+		return hkdf(length, PRK_2e, new byte[0], K_2e_info);
 	}
 }
