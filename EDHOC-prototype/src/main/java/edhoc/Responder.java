@@ -106,7 +106,7 @@ public class Responder {
 		TH_2 = SHA256(concat(message1, data2));
 
 		// Used to derive key and IV to encrypt message_2
-		byte[] PRK_2e = HMAC_SHA256(G_XY, new byte[0]); // Salt is empty since we authenticate using asymmetric keys
+		byte[] PRK_2e = HMAC_SHA256(G_XY);
 		// Used to derive keys and produce a mac in message_2
 		byte[] PRK_3e2m = PRK_2e; // Since responder doesn't authenticate with a static DH key. 
 		int L = 64; // Since we use cipher suite 2
@@ -196,7 +196,7 @@ public class Responder {
 		outer_encrypt0.addAttribute(HeaderKeys.Algorithm, AlgorithmID.AES_CCM_16_64_128.AsCBOR(), Attribute.DO_NOT_SEND); // AEAD Algorithm
 		
 		byte[] TH_3 = SHA256(concat(TH_2, CIPHERTEXT_2));
-		byte[] PRK_3e2m = HMAC_SHA256(G_XY, new byte[0]); // Salt is empty since we authenticate using asymmetric keys
+		byte[] PRK_3e2m = HMAC_SHA256(G_XY);
 
 		outer_encrypt0.setExternal(TH_3);
 
