@@ -111,7 +111,7 @@ public class Initiator {
 		
 		byte[] data2 = createData2(c_r, pk);
 		byte[] TH_2 = SHA256(concat(message1, data2));
-		byte[] PRK_2e = HMAC_SHA256(G_XY, new byte[0]); // Salt is empty since we authenticate using asymmetric keys
+		byte[] PRK_2e = HMAC_SHA256(G_XY); // Salt is empty since we authenticate using asymmetric keys
 
 		byte[] K_2e_info = makeInfo("XOR-ENCRYPTION", CIPHERTEXT_2.length, TH_2);
 		byte[] K_2e = hkdf(CIPHERTEXT_2.length, PRK_2e, new byte[0], K_2e_info);

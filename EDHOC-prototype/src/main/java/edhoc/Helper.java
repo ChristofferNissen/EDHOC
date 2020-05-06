@@ -36,6 +36,10 @@ public class Helper {
 		return combined;
 	}
 
+	public static byte[] HMAC_SHA256(byte[] key) {
+		return HMAC_SHA256(key, new byte[0]);
+	}
+
 	public static byte[] HMAC_SHA256(byte[] key, byte[] message) {
 		byte opad = 0x5c;
 		byte ipad = 0x36;
