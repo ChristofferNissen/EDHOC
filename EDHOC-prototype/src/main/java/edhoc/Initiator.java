@@ -22,7 +22,8 @@ import static javax.xml.bind.DatatypeConverter.printHexBinary;
 import static edhoc.Helper.*;
 
 public class Initiator {
-	int methodCorr; // Method and correlation as a single value (specified in message_1)
+	private static final CBORFactory factory = new CBORFactory();
+
 	// Cipher Suite consists of: 
 	//	* AEAD Algorithm
 	//	* Hash Algorithm
@@ -34,29 +35,32 @@ public class Initiator {
 	// Represents a specific suite consisting of an ordered set of COSE algorithms
 	int method = 0; // Initiator and Responder both use Signature Key
 	int corr = 3; // transport provides a correlation mechanism that enables both parties to correlate all three messages
-	int suite = 2; // (AES-CCM-16-64-128, SHA-256, P-256, ES256, P-256, AES-CCM-16-64-128, SHA-256)
-	int c_i = 5; // bstr / int
-
-	public static final int AES_CCM_16_IV_LENGTH = 13;
-	byte[] CRED_I;
+	int SUITE_I = 2; // (AES-CCM-16-64-128, SHA-256, P-256, ES256, P-256, AES-CCM-16-64-128, SHA-256)
+	int METHOD_CORR; // Method and correlation as a single value (specified in message_1)
+	int C_I = 5; // bstr / int
+	ECDiffieHellman dh;
+	PublicKey G_X;
+	byte[] G_XY = null;
 	byte[] ID_CRED_R = new byte[]{0x14};
 	byte[] ID_CRED_I = new byte[]{0x23};
-	private KeyPair keyPair; // Pair of values for G_X and the private component
-	private ECDiffieHellman dh;
-	private final CBORFactory factory = new CBORFactory();
-	byte[] G_XY = null;
+	byte[] CRED_R; 
+	byte[] CRED_I;
 	byte[] message1 = null;
-	KeyPair signatureKeyPair;
-	PublicKey responderPk;
-	public Initiator(ECDiffieHellman dh, KeyPair signatureKeyPair, PublicKey responderPk) {
-		methodCorr = 4 * method + corr;
+	KeyPair keyPair; // Pair of values for G_X and the private component
+	OneKey signatureKey;
+	OneKey verificationKey;
+
+	public Initiator(ECDiffieHellman dh, KeyPair signatureKeyPair, PublicKey responderPk) throws CoseException {
+		METHOD_CORR = 4 * method + corr;
 		this.dh = dh;
-		this.signatureKeyPair = signatureKeyPair;
-		this.responderPk = responderPk;
+		CRED_R = responderPk.getEncoded();
 		keyPair = dh.generateKeyPair();
+		G_X = keyPair.getPublic();
 		System.out.println("Setting up Initiator before protocol..");
 		System.out.println("Initiator chooses random value " + printHexBinary(keyPair.getPrivate().getEncoded()) + "\n");
 		CRED_I = signatureKeyPair.getPublic().getEncoded();
+		signatureKey = new OneKey(signatureKeyPair.getPublic(), signatureKeyPair.getPrivate());
+		verificationKey = new OneKey(responderPk, null);
 	}
 
 	// The Initiator SHALL compose message_1 as follows:
@@ -85,15 +89,14 @@ public class Initiator {
 		System.out.println("Initiator Processing of Message 1\n");
 
 		// Encode and send
-		PublicKey pk = keyPair.getPublic();
-		System.out.println("Initiator public key " + pk);
+		System.out.println("Initiator public key " + G_X);
 
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
 		CBORGenerator generator = factory.createGenerator(stream);
-		generator.writeNumber(methodCorr);
-		generator.writeNumber(suite);
-		generator.writeBinary(pk.getEncoded());
-		generator.writeNumber(c_i);
+		generator.writeNumber(METHOD_CORR);
+		generator.writeNumber(SUITE_I);
+		generator.writeBinary(G_X.getEncoded());
+		generator.writeNumber(C_I);
 		generator.close();
 
 		message1 = stream.toByteArray();
@@ -117,48 +120,29 @@ public class Initiator {
 		byte[] data2 = createData2(c_r, pk);
 		byte[] TH_2 = SHA256(concat(message1, data2));
 		byte[] PRK_2e = HMAC_SHA256(G_XY); 
-
-		byte[] K_2e_info = makeInfo("XOR-ENCRYPTION", CIPHERTEXT_2.length, TH_2);
-hkdf(CIPHERTEXT_2.length, PRK_2e, new byte[0], K_2e_info);
-		byte[] K_2e = makeK_2e(PRK_2e, TH_2, CIPHERTEXT_2); 
-
-		byte[] plaintext = xor(K_2e, CIPHERTEXT_2);
+		byte[] K_2e = makeK_2e(PRK_2e, TH_2, CIPHERTEXT_2.length); 
+		byte[] plaintext = xor(K_2e, CIPHERTEXT_2); // Decrypt
 
 		System.out.println("Initiator has plaintext = " + printHexBinary(plaintext) );
-
 		System.out.println("Correctly identified the other party: " + (plaintext[0] == ID_CRED_R[0]) );
-		byte[] CRED_R = responderPk.getEncoded();
 		System.out.println("Initator connects " + printHexBinary(ID_CRED_R) + " to key " + printHexBinary(CRED_R));
 
-		byte[] signature = new byte[plaintext.length-1];
-		for (int i = 1; i < plaintext.length; ++i) {
-			signature[i-1] = plaintext[i];
-		}
-
-		Sign1Message M = (Sign1Message) Sign1Message.DecodeFromBytes(signature);
+		// Validate signature 
+		Sign1Message M = (Sign1Message) Sign1Message.DecodeFromBytes(readSignature(plaintext));
 		M.addAttribute(HeaderKeys.Algorithm, AlgorithmID.ECDSA_256.AsCBOR(), Attribute.DO_NOT_SEND); // ES256 over the curve P-256
+		M.setExternal( concat(TH_2, CRED_R) ); // external_aad = << TH_2, CRED_R >>
 
-		byte[] external = concat(TH_2, CRED_R);
-		M.setExternal( external ); // external_aad = << TH_2, CRED_R >>
-
-		System.out.println( "External data = " + printHexBinary(external));
-		System.out.println( "Received signature = " + printHexBinary(signature));
-		System.out.println( "Signature is valid: " + M.validate(new OneKey(responderPk, null)) + "\n" );
-		
-
+		System.out.println( "Signature is valid: " + M.validate(verificationKey) + "\n" );
+		// Validation complete
 
 		System.out.println("Initiator Processing of Message 3\n");
 
+		byte[] TH_3 = SHA256(concat(TH_2, CIPHERTEXT_2));
 		// Used to encrypt message_3
 		byte[] PRK_3e2m = PRK_2e; // Since we don't use static Diffie-Hellman key
 		// Used to derive keys and IVs to produce a MAC in message_3 and to
 		// derive application specific data
 		byte[] PRK_4x3m = PRK_3e2m; // Since we don't use static Diffie-Hellman key
-
-		int L = 64; // Since we use cipher suite 2
-		int K_L = L / 4;
-
-		byte[] TH_3 = SHA256(concat(TH_2, CIPHERTEXT_2));
 
 		// Compute an inner COSE_Encrypt0 as defined in Section 5.3 of [RFC8152], with
 		// the EDHOC AEAD algorithm in the selected cipher suite, K_3m IV_3m and the 
@@ -171,15 +155,11 @@ hkdf(CIPHERTEXT_2.length, PRK_2e, new byte[0], K_2e_info);
 		inner.SetContent(""); // plaintext = h''
 
 		// Nonce N = IV_3m is th output of HKDF-Expand(PRK_4x3m, info, L)	
-		byte[] COSE_Encrypt0_protected = inner.getProtectedAttributes().EncodeToBytes();
-		byte[] IV_3m_info = makeInfo("IV-GENERATION", AES_CCM_16_IV_LENGTH, COSE_Encrypt0_protected, TH_3);
-		byte[] IV_3m = hkdf(AES_CCM_16_IV_LENGTH, PRK_4x3m, new byte[0], IV_3m_info);
+		byte[] IV_3m = makeIV_3m(PRK_4x3m, inner.getProtectedAttributes(), TH_3);
 		inner.addAttribute(HeaderKeys.IV, IV_3m, Attribute.DO_NOT_SEND);
 
 		// K_3m s
-		byte algorithmID = 10; // 10 refers to our algorithm AES_CCM_16_64_128(__10__, 128, 64),
-		byte[] K_3m_info = makeInfo(new byte[]{algorithmID}, K_L, COSE_Encrypt0_protected, TH_3); 
-		byte[] K_3m = hkdf(K_L, PRK_4x3m, new byte[0], K_3m_info);
+		byte[] K_3m = makeK_3m(PRK_4x3m, inner.getProtectedAttributes(), TH_3);
 		inner.encrypt(K_3m);
 
 		// If the Initiator authenticates with a static Diffie-Hellman key (method equals 2 or 3)
@@ -190,15 +170,12 @@ hkdf(CIPHERTEXT_2.length, PRK_2e, new byte[0], K_2e_info);
 
 		M = new Sign1Message();
 		M.addAttribute(HeaderKeys.Algorithm, AlgorithmID.ECDSA_256.AsCBOR(), Attribute.DO_NOT_SEND); // ES256 over the curve P-256
-		
 		M.addAttribute(HeaderKeys.KID, CBORObject.FromObject(ID_CRED_I), Attribute.PROTECTED); // protected = << ID_CRED_I >>
 		M.setExternal( concat(TH_3, CRED_I) ); // << TH_3, CRED_I >>
 		M.SetContent(MAC_3); // payload
+		M.sign(signatureKey);
 
-		OneKey key = new OneKey(signatureKeyPair.getPublic(), signatureKeyPair.getPrivate());
-		M.sign(key);
-
-		signature = M.EncodeToBytes();
+		byte[] signature = M.EncodeToBytes();
 
 		// Compute an outer COSE_Encrypt0 as defined in Section 5.3
 		// CIPHERTEXT_3 is the 'ciphertext' of the outer COSE_Encrypt0
@@ -210,14 +187,11 @@ hkdf(CIPHERTEXT_2.length, PRK_2e, new byte[0], K_2e_info);
 		
 		// IV_3ae
 		// Nonce IV_3ae is the output of HKDF-Expand(PRK_3e2m, info, L). PRK_3e2m = PRK_2e for asymmetric
-		byte[] IV_3ae_info = makeInfo("IV-GENERATION", AES_CCM_16_IV_LENGTH, outer.getProtectedAttributes().EncodeToBytes(), TH_3);
-		byte[] IV_3ae = hkdf(AES_CCM_16_IV_LENGTH, PRK_3e2m, new byte[0], IV_3ae_info);
+		byte[] IV_3ae = makeIV_3ae(PRK_3e2m, outer.getProtectedAttributes(), TH_3);
 		outer.addAttribute(HeaderKeys.IV, CBORObject.FromObject(IV_3ae), Attribute.DO_NOT_SEND);
 
 		// K_3ae
-		byte[] K_3ae_info = makeInfo(new byte[]{algorithmID}, K_L, outer.getProtectedAttributes().EncodeToBytes(), TH_3);
-		byte[] K_3ae = hkdf(K_L, PRK_3e2m, new byte[0], K_3ae_info);
-		
+		byte[] K_3ae = makeK_3ae(PRK_3e2m, outer.getProtectedAttributes(), TH_3);
 		System.out.println( "Initiator K_3ae = " + printHexBinary(K_3ae) );
 		outer.encrypt(K_3ae);
 
@@ -229,6 +203,16 @@ hkdf(CIPHERTEXT_2.length, PRK_2e, new byte[0], K_2e_info);
 		generator.writeBinary(CIPHERTEXT_3);
 		generator.close();
 		return stream.toByteArray();
+	}
+
+	private byte[] makeK_3m(byte[] PRK_4x3m, CBORObject protectedAttributes, byte[] TH_3) {
+		byte[] K_3m_info = makeInfo(new byte[]{AEAD_ALGORITHM_ID}, AEAD_KEY_LENGTH, protectedAttributes.EncodeToBytes(), TH_3); 
+		return hkdf(AEAD_KEY_LENGTH, PRK_4x3m, K_3m_info);
+	}
+
+	private byte[] makeIV_3m(byte[] PRK_4x3m, CBORObject protectedAttributes, byte[] TH_3) {
+		byte[] IV_3m_info = makeInfo("IV-GENERATION", AES_CCM_16_IV_LENGTH, protectedAttributes.EncodeToBytes(), TH_3);
+		return hkdf(AES_CCM_16_IV_LENGTH, PRK_4x3m, IV_3m_info);
 	}
 
 	private byte[] createData2(int c_r, byte[] pk) throws IOException {

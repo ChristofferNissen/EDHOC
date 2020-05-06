@@ -3,17 +3,21 @@ package edhoc;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.security.MessageDigest;
+import java.security.PublicKey;
 
 import com.fasterxml.jackson.dataformat.cbor.CBORFactory;
 import com.fasterxml.jackson.dataformat.cbor.CBORGenerator;
 import com.fasterxml.jackson.dataformat.cbor.CBORParser;
+import com.upokecenter.cbor.CBORObject;
 
 public class Helper {
-
+	private static final CBORFactory factory = new CBORFactory();
 	public static final int HASH_LENGTH = 32; // Since we use SHA256
 	public static final byte[] EMPTY_BYTESTRING = new byte[]{0x40}; 
 	public static final byte AEAD_ALGORITHM_ID = 0x10;
+	public static final int AEAD_KEY_LENGTH = 16;
 	public static final byte HMAC_ALGORITHM_ID = 0x5;
+	public static final int AES_CCM_16_IV_LENGTH = 13;
 
 	public static byte[] nextByteArray(CBORParser parser) throws IOException {
 		ByteArrayOutputStream stream = new ByteArrayOutputStream();
@@ -80,7 +84,6 @@ public class Helper {
 	// 	[ keyDataLength, protected, other ]
 	// ]
 	public static byte[] makeInfo(byte[] algorithmID, int keyDataLength, byte[] protectedS, byte[] other) {
-		CBORFactory factory = new CBORFactory();
 		ByteArrayOutputStream stream = new ByteArrayOutputStream();
 		try {
 			CBORGenerator gen = factory.createGenerator(stream);
@@ -115,12 +118,8 @@ public class Helper {
 		return stream.toByteArray();
 	}
 
-	public static byte[] hkdf(int length, byte[] ikm) {
-		return hkdf(length, ikm, new byte[HASH_LENGTH], new byte[0]);
-	}
-
-	public static byte[] hkdf(int length, byte[] ikm, byte[] salt, byte[] info) {
-		byte[] prk = HMAC_SHA256(salt, ikm);
+	public static byte[] hkdf(int length, byte[] ikm, byte[] info) {
+		byte[] prk = HMAC_SHA256(new byte[0], ikm);
 		byte[] t = new byte[HASH_LENGTH];
 		byte[] okm = new byte[length];
 		int iters = (int) Math.ceil((double)length / HASH_LENGTH);
@@ -180,6 +179,32 @@ public class Helper {
 	// ]
 	public static byte[] makeK_2e(byte[] PRK_2e, byte[] TH_2, int length) {
 		byte[] K_2e_info = makeInfo("XOR-ENCRYPTION", length, EMPTY_BYTESTRING, TH_2);
-		return hkdf(length, PRK_2e, new byte[0], K_2e_info);
+		return hkdf(length, PRK_2e, K_2e_info);
+	}
+
+	public static byte[] readSignature(byte[] plaintext) {
+		byte[] signature = new byte[plaintext.length-1];
+		for (int i = 1; i < plaintext.length; ++i) {
+			signature[i-1] = plaintext[i];
+		}
+		return signature;
+	}
+
+	public static byte[] createData2(PublicKey G_Y, int C_R) throws IOException {
+		ByteArrayOutputStream stream = new ByteArrayOutputStream();
+		CBORGenerator generator = factory.createGenerator(stream);
+		generator.writeBinary(G_Y.getEncoded());
+		generator.writeNumber(C_R);
+		generator.close();
+		return stream.toByteArray();
+	}
+	public static byte[] makeK_3ae(byte[] PRK_3e2m, CBORObject protectedAttributes, byte[] TH_3) {
+		byte[] K_3ae_info = makeInfo(new byte[]{AEAD_ALGORITHM_ID}, AEAD_KEY_LENGTH, protectedAttributes.EncodeToBytes(), TH_3);
+		return hkdf(AEAD_KEY_LENGTH, PRK_3e2m, K_3ae_info);
+	}
+
+	public static byte[] makeIV_3ae(byte[] PRK_3e2m, CBORObject protectedAttributes, byte[] TH_3) {
+		byte[] IV_3ae_info = makeInfo("IV-GENERATION", AES_CCM_16_IV_LENGTH, protectedAttributes.EncodeToBytes(), TH_3);
+		return hkdf(AES_CCM_16_IV_LENGTH, PRK_3e2m, IV_3ae_info);
 	}
 }
