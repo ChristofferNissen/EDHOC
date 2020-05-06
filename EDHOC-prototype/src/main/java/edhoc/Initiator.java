@@ -141,6 +141,7 @@ public class Initiator {
 		
 		// processing of message_2 done
 
+		
 
 		// processing of message_3 start
 
@@ -233,15 +234,6 @@ public class Initiator {
 		generator.writeNumber(c_r);
 		generator.close();
 		return stream.toByteArray();
-	}
-
-	private boolean validate(byte[] pk, int c_r, Object cipherText) {
-		// TODO: validate
-		boolean isInvalid = c_r == -1 || pk == null;
-		if (isInvalid) {
-			System.out.println("Validation failed: Aborting.");
-		}
-		return !isInvalid;
 	}
 
 }
