@@ -56,11 +56,13 @@ public class Initiator {
 		CRED_R = responderPk.getEncoded();
 		keyPair = dh.generateKeyPair();
 		G_X = keyPair.getPublic();
-		System.out.println("Setting up Initiator before protocol..");
-		System.out.println("Initiator chooses random value " + printHexBinary(keyPair.getPrivate().getEncoded()) + "\n");
 		CRED_I = signatureKeyPair.getPublic().getEncoded();
 		signatureKey = new OneKey(signatureKeyPair.getPublic(), signatureKeyPair.getPrivate());
 		verificationKey = new OneKey(responderPk, null);
+		
+		Helper.printlnOnRead("Setting up Initiator before protocol..");
+		System.out.println("Initiator chooses random value " + printHexBinary(keyPair.getPrivate().getEncoded()) + "\n");
+		System.out.println("Initiator public key " + G_X + "\nEmphemeral ECDH key pair constructed\n");
 	}
 
 	// The Initiator SHALL compose message_1 as follows:
@@ -85,12 +87,14 @@ public class Initiator {
 	// Encode message_1 as a sequence of CBOR encoded data items as specified in
 	// Section 4.2.1
 	public byte[] createMessage1() throws IOException {
-
-		System.out.println("Initiator Processing of Message 1\n");
+		Helper.printlnOnRead("Initiator Processing of Message 1");
+		Helper.printlnOnRead("	Picking method = 0 (both parties know each others public key)");
+		Helper.printlnOnRead("	Picking correlation = 3 (underlying TCP like connection exists)");
+		Helper.printlnOnRead("	Connection identifier C_I(" + C_I + ") chosen");
+	 	Helper.printlnOnRead("	Cipher suite 2 selected");
+		Helper.printlnOnRead("	CBOR Object created... Sending message...");
 
 		// Encode and send
-		System.out.println("Initiator public key " + G_X);
-
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
 		CBORGenerator generator = factory.createGenerator(stream);
 		generator.writeNumber(METHOD_CORR);
@@ -98,15 +102,14 @@ public class Initiator {
 		generator.writeBinary(G_X.getEncoded());
 		generator.writeNumber(C_I);
 		generator.close();
-
 		message1 = stream.toByteArray();
-		
 		return message1;
 	}
 
 	// Receive message 2, make and return message 3
 	public byte[] createMessage3(byte[] message2) throws IOException, CoseException{
-		System.out.println("Initiator Processing of Message 2\n");
+		Helper.printlnOnRead("Initiator Processing of Message 2");
+
 		// Decoding
 		CBORParser parser = factory.createParser(message2);
 		byte[] pk = nextByteArray(parser);
@@ -115,7 +118,11 @@ public class Initiator {
 		parser.close();
 
 		G_XY = dh.generateSecret(keyPair.getPrivate(), dh.decodePublicKey(pk));
-		System.out.println("Initiator has shared secret: " + printHexBinary(G_XY));
+
+
+		Helper.printlnOnRead("	Decoded message two successfully..");
+		Helper.printlnOnRead("	Protocol state retrieved");
+		Helper.printlnOnRead("	Initiator has shared secret: 0x" + printHexBinary(G_XY));
 		
 		byte[] data2 = createData2(c_r, pk);
 		byte[] TH_2 = SHA256(concat(message1, data2));
@@ -123,19 +130,18 @@ public class Initiator {
 		byte[] K_2e = makeK_2e(PRK_2e, TH_2, CIPHERTEXT_2.length); 
 		byte[] plaintext = xor(K_2e, CIPHERTEXT_2); // Decrypt
 
-		System.out.println("Initiator has plaintext = " + printHexBinary(plaintext) );
-		System.out.println("Correctly identified the other party: " + (plaintext[0] == ID_CRED_R[0]) );
-		System.out.println("Initator connects " + printHexBinary(ID_CRED_R) + " to key " + printHexBinary(CRED_R));
+		Helper.printlnOnRead("	Ciphertext decrypted = 0x" + printHexBinary(plaintext) );
+		Helper.printlnOnRead("	Correctly identified the other party: " + (plaintext[0] == ID_CRED_R[0]) );
+		Helper.printlnOnRead("	Initator connects id 0x" + printHexBinary(ID_CRED_R) + " to key 0x" + printHexBinary(CRED_R));
 
 		// Validate signature 
 		Sign1Message M = (Sign1Message) Sign1Message.DecodeFromBytes(readSignature(plaintext));
 		M.addAttribute(HeaderKeys.Algorithm, AlgorithmID.ECDSA_256.AsCBOR(), Attribute.DO_NOT_SEND); // ES256 over the curve P-256
 		M.setExternal( concat(TH_2, CRED_R) ); // external_aad = << TH_2, CRED_R >>
 
-		System.out.println( "Signature is valid: " + M.validate(verificationKey) + "\n" );
-		// Validation complete
-
-		System.out.println("Initiator Processing of Message 3\n");
+		Helper.printlnOnRead( "	Signature is valid: " + M.validate(verificationKey) );
+		Helper.printlnOnRead("Initiator Processing of Message 3");
+		Helper.printlnOnRead("	Transcript Hash (TH_3) computed");
 
 		byte[] TH_3 = SHA256(concat(TH_2, CIPHERTEXT_2));
 		// Used to encrypt message_3
@@ -165,8 +171,7 @@ public class Initiator {
 		// If the Initiator authenticates with a static Diffie-Hellman key (method equals 2 or 3)
 		// then the Signature_or_MAC_3 is MAC_3.
 		byte[] MAC_3 = inner.EncodeToBytes();
-
-		System.out.println("msg encoded = " + printHexBinary(MAC_3) );
+		Helper.printlnOnRead("	MAC_3 calculated = 0x" + printHexBinary(MAC_3) );
 
 		M = new Sign1Message();
 		M.addAttribute(HeaderKeys.Algorithm, AlgorithmID.ECDSA_256.AsCBOR(), Attribute.DO_NOT_SEND); // ES256 over the curve P-256
@@ -177,32 +182,34 @@ public class Initiator {
 
 		byte[] signature = M.EncodeToBytes();
 
+
+		Helper.printlnOnRead("	MAC_3 signed = 0x" + printHexBinary(signature) );
+
 		// Compute an outer COSE_Encrypt0 as defined in Section 5.3
 		// CIPHERTEXT_3 is the 'ciphertext' of the outer COSE_Encrypt0
 		Encrypt0Message outer = new Encrypt0Message();
 		outer.addAttribute(HeaderKeys.Algorithm, AlgorithmID.AES_CCM_16_64_128.AsCBOR(), Attribute.DO_NOT_SEND); // AEAD Algorithm
-		
 		outer.setExternal(TH_3); // external_aad = TH_3
 		outer.SetContent( concat(ID_CRED_I, signature) ); // plaintext = ( ID_CRED_I / bstr_identifier, Signature_or_MAC_3, ? AD_3 )
 		
-		// IV_3ae
 		// Nonce IV_3ae is the output of HKDF-Expand(PRK_3e2m, info, L). PRK_3e2m = PRK_2e for asymmetric
 		byte[] IV_3ae = makeIV_3ae(PRK_3e2m, outer.getProtectedAttributes(), TH_3);
 		outer.addAttribute(HeaderKeys.IV, CBORObject.FromObject(IV_3ae), Attribute.DO_NOT_SEND);
-
-		// K_3ae
 		byte[] K_3ae = makeK_3ae(PRK_3e2m, outer.getProtectedAttributes(), TH_3);
-		System.out.println( "Initiator K_3ae = " + printHexBinary(K_3ae) );
 		outer.encrypt(K_3ae);
 
 		byte[] CIPHERTEXT_3 = outer.EncodeToBytes();
+		Helper.printlnOnRead("	CIPHERTEXT_3 computed");
 
 		// Encode message3 as a sequence of CBOR encoded data items as specified in Section 4.4.1
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
 		CBORGenerator generator = factory.createGenerator(stream);
 		generator.writeBinary(CIPHERTEXT_3);
 		generator.close();
-		return stream.toByteArray();
+		byte[] s = stream.toByteArray();
+
+		Helper.printlnOnRead("	message_3 encoded as CBOR");
+		return s;
 	}
 
 	private byte[] makeK_3m(byte[] PRK_4x3m, CBORObject protectedAttributes, byte[] TH_3) {
