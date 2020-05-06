@@ -3,22 +3,11 @@ package edhoc;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.security.MessageDigest;
-import java.util.Base64;
 
-import com.fasterxml.jackson.core.Version;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.dataformat.cbor.CBORFactory;
 import com.fasterxml.jackson.dataformat.cbor.CBORGenerator;
 import com.fasterxml.jackson.dataformat.cbor.CBORParser;
-
-import edhoc.model.Message;
-import edhoc.model.MessageOne;
-import edhoc.model.MessageThree;
-import edhoc.model.MessageTwo;
-import edhoc.model.deserializers.MessageOneDeserializer;
-import edhoc.model.deserializers.MessageThreeDeserializer;
-import edhoc.model.deserializers.MessageTwoDeserializer;
 
 public class Helper {
 
@@ -51,18 +40,15 @@ public class Helper {
 		byte opad = 0x5c;
 		byte ipad = 0x36;
 
-		MessageDigest sha256 = getSHA256Instance();
-	
 		if (key.length > HASH_LENGTH)
-			key = sha256.digest(key);
+			key = SHA256(key);
 		else if (key.length < HASH_LENGTH)
 			key = pad(key, HASH_LENGTH);
 
 		byte[] iKeyPad = xor(key, ipad);
 		byte[] oKeyPad = xor(key, opad);
 
-		return sha256.digest(concat(oKeyPad, sha256.digest(concat(iKeyPad, message))));
-
+		return SHA256(concat(oKeyPad, SHA256(concat(iKeyPad, message))));
 	}
 
 	private static MessageDigest getSHA256Instance() {
@@ -142,7 +128,6 @@ public class Helper {
 				okm[j + i * HASH_LENGTH] = t[j];
 			}
 		}
-
 		return okm;
 	}
 
@@ -157,9 +142,9 @@ public class Helper {
 		if (a1.length != a2.length) throw new IllegalArgumentException("Can't XOR different sized arrays");
 		
 		byte[] result = new byte[a1.length];
-		for (int i = 0; i < a1.length; ++i) {
+		for (int i = 0; i < a1.length; ++i) 
 		 	result[i] = (byte)(a1[i] ^ a2[i]);
-		}
+
 		return result;
 	}
 
@@ -170,58 +155,8 @@ public class Helper {
 		return result;
 	}
 
-	public static byte[] sha256Hashing(byte[] cborEncodedBytes) {
-		try {
-			final MessageDigest md = MessageDigest.getInstance("SHA-256");
-			return md.digest(cborEncodedBytes);
-			
-			// final byte[] hashedBytes = md.digest(cborEncodedBytes);
-			// final String hashedString = Base64.getEncoder().encodeToString(hashedBytes);
-			// final byte[] encodedHashedString = encodeAsCbor(hashedString);
-			// return encodedHashedString;
-
-		} catch (Exception e) {
-			System.out.println("SHA-256 not supported.");
-			return null;
-		}
+	public static byte[] SHA256(byte[] data) {
+		MessageDigest md = getSHA256Instance();
+		return md.digest(data);
 	}
-
-	
-    public static MessageOne decodeM1FromCbor(byte[] cborData, Class<?> cls) throws IOException {
-		final CBORFactory f = new CBORFactory();
-        final ObjectMapper mapper = new ObjectMapper(f);
-        SimpleModule module = new SimpleModule("MessageOneDeserializer", new Version(1, 0, 0, null, null, null));
-        module.addDeserializer(MessageOne.class, new MessageOneDeserializer());
-        mapper.registerModule(module);
-        // and then read/write data as usual
-
-		final MessageOne value = mapper.readValue(cborData, MessageOne.class); 
-		return value;
-    }
-    
-    public static MessageTwo DecodeM2FromCbor(byte[] cborData) throws IOException {
-		final CBORFactory f = new CBORFactory();
-        final ObjectMapper mapper = new ObjectMapper(f);
-        SimpleModule module = new SimpleModule("MessageTwoDeserializer", new Version(1, 0, 0, null, null, null));
-        module.addDeserializer(MessageTwo.class, new MessageTwoDeserializer());
-        mapper.registerModule(module);
-        // and then read/write data as usual
-        
-		final MessageTwo value = mapper.readValue(cborData, MessageTwo.class); 
-		return value;
-    }
-    
-    public static MessageThree DecodeM3FromCbor(byte[] cborData) throws IOException {
-		final CBORFactory f = new CBORFactory();
-        final ObjectMapper mapper = new ObjectMapper(f);
-        SimpleModule module = new SimpleModule("MessageThreeDeserializer", new Version(1, 0, 0, null, null, null));
-        module.addDeserializer(MessageThree.class, new MessageThreeDeserializer());
-        mapper.registerModule(module);
-		// and then read/write data as usual
-
-        final MessageThree value = mapper.readValue(cborData, MessageThree.class); 
-		return value;
-	}
-
-
 }
