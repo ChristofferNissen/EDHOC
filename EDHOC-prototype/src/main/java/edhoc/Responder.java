@@ -134,10 +134,19 @@ public class Responder {
 		byte[] signature = M.EncodeToBytes();
 		byte[] plaintext = concat(ID_CRED_R, signature);
 		
+		System.out.println("Responder has plaintext = " + printHexBinary(plaintext) );
+
 		byte[] K_2e_info = makeInfo("XOR-ENCRYPTION", plaintext.length, TH_2);
 		byte[] K_2e = hkdf(plaintext.length, PRK_2e, new byte[0], K_2e_info);
 
-		return xor(K_2e, plaintext);
+		byte[] ciphertext = xor(K_2e, plaintext);
+
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+		CBORGenerator generator = factory.createGenerator(stream);
+		generator.writeBinary(ciphertext);
+		generator.close();
+
+		return stream.toByteArray();
 	}
 
 	private boolean validate1(int methodCorr, int suite, byte[] pkBytes, int c_i, byte[] sharedSecret) {
