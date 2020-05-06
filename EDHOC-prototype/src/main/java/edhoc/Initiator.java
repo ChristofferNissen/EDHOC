@@ -135,8 +135,23 @@ public class Initiator {
 		System.out.println( "Received signature = " + printHexBinary(signature));
 		System.out.println( "Signature is valid: " + M.validate(new OneKey(responderPk, null)) );
 		
+		// processing of message_2 done
 
 		byte[] TH_3 = SHA256(concat(TH_2, CIPHERTEXT_2));
+
+		// PRK_3e2m = PRK_2e
+
+		// K_3m 
+		byte[] K_3m_info = makeInfo("XOR-ENCRYPTION", CIPHERTEXT_2.length, TH_3);
+		byte[] K_3m = hkdf(CIPHERTEXT_2.length, PRK_2e, new byte[0], K_3m_info);
+
+		// IV_3m
+		// PRK_4x3m = HMAC-SHA-256(PRK_3e2m, G_IY)
+		// Nonce IV_3m is th output of HKDF-Expand(PRK_4x3m, info, L)	
+
+		byte[] PRK_4x3m = HMAC_SHA256(PRK_2e, G_XY);
+		byte[] IV_3m_info = makeInfo("XOR-ENCRYPTION", CIPHERTEXT_2.length, TH_3);
+		byte[] IV_3m = hkdf(CIPHERTEXT_2.length, PRK_4x3m, new byte[0], IV_3m_info);
 
 
 		// Validation
