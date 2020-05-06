@@ -13,6 +13,7 @@ import com.upokecenter.cbor.CBORObject;
 import COSE.AlgorithmID;
 import COSE.Attribute;
 import COSE.CoseException;
+import COSE.Encrypt0Message;
 import COSE.HeaderKeys;
 import COSE.OneKey;
 import COSE.Sign1Message;
@@ -137,21 +138,57 @@ public class Initiator {
 		
 		// processing of message_2 done
 
+
+
+		// processing of message_3 start
+
 		byte[] TH_3 = SHA256(concat(TH_2, CIPHERTEXT_2));
 
 		// PRK_3e2m = PRK_2e
 
-		// K_3m 
-		byte[] K_3m_info = makeInfo("XOR-ENCRYPTION", CIPHERTEXT_2.length, TH_3);
-		byte[] K_3m = hkdf(CIPHERTEXT_2.length, PRK_2e, new byte[0], K_3m_info);
+		int L = 64; // Since we use cipher suite 2
+		int IV_L = L / 8;
+		int K_3m_L = L / 4;
+
+		// Compute an inner COSE_Encrypt0 as defined in Section 5.3 of [RFC8152], with
+		// the EDHOC AEAD algorithm in the selected cipher suite, K_3m IV_3m and the 
+		// following parameters: (Omitted)
+		// MAC_3 is the 'ciphertext' of the inner COSE_Encrypt0.
+		
+		Encrypt0Message msg = new Encrypt0Message();
+		msg.addAttribute(HeaderKeys.Algorithm, AlgorithmID.AES_CCM_16_64_128.AsCBOR(), Attribute.DO_NOT_SEND);
+		msg.addAttribute(HeaderKeys.KID, CBORObject.FromObject(ID_CRED_R), Attribute.PROTECTED); // protected = << ID_CRED_R >>
+		msg.setExternal( concat(TH_3, keyPair.getPrivate().getEncoded()) ); // external_aad = << TH_2, CRED_R >>
+		msg.SetContent(""); // plaintext = h''
 
 		// IV_3m
 		// PRK_4x3m = HMAC-SHA-256(PRK_3e2m, G_IY)
 		// Nonce IV_3m is th output of HKDF-Expand(PRK_4x3m, info, L)	
 
 		byte[] PRK_4x3m = HMAC_SHA256(PRK_2e, G_XY);
-		byte[] IV_3m_info = makeInfo("XOR-ENCRYPTION", CIPHERTEXT_2.length, TH_3);
-		byte[] IV_3m = hkdf(CIPHERTEXT_2.length, PRK_4x3m, new byte[0], IV_3m_info);
+		byte[] IV_3m_info = makeInfo("IV-GENERATION", IV_L, TH_3);
+		byte[] IV_3m = hkdf(IV_L, PRK_4x3m, new byte[0], IV_3m_info);
+		msg.addAttribute(HeaderKeys.IV, IV_3m, Attribute.DO_NOT_SEND);
+
+		// K_3m s
+		byte algorithmID = 10; // 10 refers to our algorithm AES_CCM_16_64_128(__10__, 128, 64),
+		byte[] K_3m_info = makeInfo(new byte[]{algorithmID}, K_3m_L, TH_3, msg.getProtectedAttributes().EncodeToBytes()); 
+		byte[] K_3m = hkdf(K_3m_L, PRK_2e, new byte[0], K_3m_info);
+		msg.encrypt(K_3m);
+
+		byte[] MAC_3 = msg.EncodeToBytes();
+
+		System.out.println("msg encoded = " + printHexBinary(MAC_3) );
+
+		// If the Initiator authenticates with a static Diffie-Hellman key (method equals 2 or 3)
+		// then the Signature_or_MAC_3 is MAC_3.
+		
+
+
+		// Compute an outer COSE_Encrypt0 as defined in Section 5.3
+		// CIPHERTEXT_3 is the 'ciphertext' of the outer COSE_Encrypt0
+
+		// Encode message3 as a sequence of CBOR encoded data items as specified in Section 4.4.1
 
 
 		// Validation
