@@ -125,15 +125,19 @@ public class Responder {
 		
 		// protected = << ID_CRED_R >>
 		M.addAttribute(HeaderKeys.KID, CBORObject.FromObject(ID_CRED_R), Attribute.PROTECTED); // protected = << ID_CRED_R >>
-		M.setExternal( concat(TH_2, CRED_R)); // external_aad = << TH_2, CRED_R >>
+		byte[] external = concat(TH_2, CRED_R);
+		M.setExternal( external ); // external_aad = << TH_2, CRED_R >>
 		M.SetContent(MAC_2); // payload
 
-		OneKey key = new OneKey(keyPair.getPublic(), keyPair.getPrivate());
+		OneKey key = new OneKey(signatureKeyPair.getPublic(), signatureKeyPair.getPrivate());
 		M.sign(key);
+
 
 		byte[] signature = M.EncodeToBytes();
 		byte[] plaintext = concat(ID_CRED_R, signature);
-		
+
+		System.out.println( "External data = " + printHexBinary(external));
+		System.out.println( "Responder signature = " + printHexBinary(signature));
 		System.out.println("Responder has plaintext = " + printHexBinary(plaintext) );
 
 		byte[] K_2e_info = makeInfo("XOR-ENCRYPTION", plaintext.length, TH_2);
