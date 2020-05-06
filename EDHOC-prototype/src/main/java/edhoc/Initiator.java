@@ -54,7 +54,8 @@ public class Initiator {
 		this.signatureKeyPair = signatureKeyPair;
 		this.responderPk = responderPk;
 		keyPair = dh.generateKeyPair();
-		System.out.println("Initiator chooses random value " + printHexBinary(keyPair.getPrivate().getEncoded()));
+		System.out.println("Setting up Initiator before protocol..");
+		System.out.println("Initiator chooses random value " + printHexBinary(keyPair.getPrivate().getEncoded()) + "\n");
 		CRED_I = signatureKeyPair.getPublic().getEncoded();
 	}
 
@@ -80,6 +81,9 @@ public class Initiator {
 	// Encode message_1 as a sequence of CBOR encoded data items as specified in
 	// Section 4.2.1
 	public byte[] createMessage1() throws IOException {
+
+		System.out.println("Initiator Processing of Message 1\n");
+
 		// Encode and send
 		PublicKey pk = keyPair.getPublic();
 		System.out.println("Initiator public key " + pk);
@@ -99,6 +103,7 @@ public class Initiator {
 
 	// Receive message 2, make and return message 3
 	public byte[] createMessage3(byte[] message2) throws IOException, CoseException{
+		System.out.println("Initiator Processing of Message 2\n");
 		// Decoding
 		CBORParser parser = factory.createParser(message2);
 		byte[] pk = nextByteArray(parser);
@@ -138,13 +143,11 @@ hkdf(CIPHERTEXT_2.length, PRK_2e, new byte[0], K_2e_info);
 
 		System.out.println( "External data = " + printHexBinary(external));
 		System.out.println( "Received signature = " + printHexBinary(signature));
-		System.out.println( "Signature is valid: " + M.validate(new OneKey(responderPk, null)) );
-		
-		// processing of message_2 done
-
+		System.out.println( "Signature is valid: " + M.validate(new OneKey(responderPk, null)) + "\n" );
 		
 
-		// processing of message_3 start
+
+		System.out.println("Initiator Processing of Message 3\n");
 
 		// Used to encrypt message_3
 		byte[] PRK_3e2m = PRK_2e; // Since we don't use static Diffie-Hellman key
@@ -156,11 +159,11 @@ hkdf(CIPHERTEXT_2.length, PRK_2e, new byte[0], K_2e_info);
 		int K_L = L / 4;
 
 		byte[] TH_3 = SHA256(concat(TH_2, CIPHERTEXT_2));
+
 		// Compute an inner COSE_Encrypt0 as defined in Section 5.3 of [RFC8152], with
 		// the EDHOC AEAD algorithm in the selected cipher suite, K_3m IV_3m and the 
 		// following parameters: (Omitted)
 		// MAC_3 is the 'ciphertext' of the inner COSE_Encrypt0.
-
 		Encrypt0Message inner = new Encrypt0Message();
 		inner.addAttribute(HeaderKeys.Algorithm, AlgorithmID.AES_CCM_16_64_128.AsCBOR(), Attribute.DO_NOT_SEND);
 		inner.addAttribute(HeaderKeys.KID, CBORObject.FromObject(ID_CRED_I), Attribute.PROTECTED); // protected = << ID_CRED_R >>
@@ -214,10 +217,10 @@ hkdf(CIPHERTEXT_2.length, PRK_2e, new byte[0], K_2e_info);
 		// K_3ae
 		byte[] K_3ae_info = makeInfo(new byte[]{algorithmID}, K_L, outer.getProtectedAttributes().EncodeToBytes(), TH_3);
 		byte[] K_3ae = hkdf(K_L, PRK_3e2m, new byte[0], K_3ae_info);
-
+		
 		System.out.println( "Initiator K_3ae = " + printHexBinary(K_3ae) );
-
 		outer.encrypt(K_3ae);
+
 		byte[] CIPHERTEXT_3 = outer.EncodeToBytes();
 
 		// Encode message3 as a sequence of CBOR encoded data items as specified in Section 4.4.1

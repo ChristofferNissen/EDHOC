@@ -16,8 +16,11 @@ public class App {
     public static void main(String[] args) throws NoSuchAlgorithmException, IOException, CoseException {
         Security.addProvider(new BouncyCastleProvider());
  
+        System.out.println( "" );
+        System.out.println( "EDHOC PROTOTYPE" );
+        System.out.println( "" );
+
         KeyPairGenerator kpg = KeyPairGenerator.getInstance("EC");
-        System.out.println(kpg.getProvider());
 
         KeyPair initiatorPair = kpg.generateKeyPair();
         KeyPair respoderPair = kpg.generateKeyPair();
@@ -35,8 +38,7 @@ public class App {
             return;
         }
 
-        System.out.println("Initiator sends: " + printHexBinary(message1) + "\n");
-
+        System.out.println("(message_one) Initiator sends: " + printHexBinary(message1) + "\n");
 
         byte[] message2 = responder.createMessage2(message1);
 
@@ -45,7 +47,7 @@ public class App {
             return;
         }
 
-        System.out.println("Responder sends: " + printHexBinary(message2) + "\n");
+        System.out.println("(message_two) Responder sends: " + printHexBinary(message2) + "\n");
 
         byte[] message3 = initiator.createMessage3(message2);
 
@@ -54,11 +56,12 @@ public class App {
             return;
         }
 
-        System.out.println("Initiator sends: " + printHexBinary(message3) + "\n");
+        System.out.println("(message_three) Initiator sends: " + printHexBinary(message3) + "\n");
 
         boolean valid = responder.validateMessage3(message3);
 
         System.out.println("Message_3 valid: " + valid);
 
     }
+
 }

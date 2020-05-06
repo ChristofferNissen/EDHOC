@@ -40,7 +40,8 @@ public class Responder {
 	public Responder(ECDiffieHellman dh, KeyPair signatureKeyPair, PublicKey initiatorPk){
 		c_r = 7; // Some perfectly random value
 		keyPair = dh.generateKeyPair();
-		System.out.println("Responder chooses random value " + printHexBinary(keyPair.getPrivate().getEncoded()));
+		System.out.println("Setting up Responder before protocol...");
+		System.out.println("Responder chooses random value " + printHexBinary(keyPair.getPrivate().getEncoded()) + "\n");
 		this.dh = dh;
 		this.signatureKeyPair = signatureKeyPair;
 		this.initiatorPk = initiatorPk;
@@ -59,6 +60,7 @@ public class Responder {
 	// Pass AD_1 to the security application.
 	// send response
 	public byte[] createMessage2(byte[] message1) throws IOException, CoseException {
+		System.out.println("Responder Processing of Message 1\n");
 		// Decoding
 		CBORParser parser = factory.createParser(message1);
 		int methodCorr = parser.nextIntValue(-1);
@@ -67,14 +69,19 @@ public class Responder {
 		int c_i = parser.nextIntValue(-1);
 		parser.close();
 
+		System.out.println("	Decoded message one successfully..");
+		System.out.println("	Cipher suite supported..");
+		System.out.println("	[SKIPPED] Pass AD_1 to the security application\n");
+
+		System.out.println("Responder Processing of Message 2\n");
+
+		System.out.println("Responder public key " + keyPair.getPublic());
+
 		G_XY = dh.generateSecret(keyPair.getPrivate(), dh.decodePublicKey(pk));
 		System.out.println("Responder has shared secret: " + printHexBinary(G_XY));
 
-
 		if (validate1(methodCorr, suite, pk, c_i, G_XY) == false)
 			return null;
-
-		System.out.println("Responder public key " + keyPair.getPublic());
 
 		byte[] data2 = createData2();
 		byte[] cipherText2 = createCipherText2(message1, data2);
@@ -126,8 +133,6 @@ public class Responder {
 
 		System.out.println("msg encoded = " + printHexBinary(MAC_2) );
 
-		
-
 		Sign1Message M = new Sign1Message();
 		M.addAttribute(HeaderKeys.Algorithm, AlgorithmID.ECDSA_256.AsCBOR(), Attribute.DO_NOT_SEND); // ES256 over the curve P-256
 		
@@ -176,6 +181,8 @@ public class Responder {
 
 	// Receive message 3, return valid boolean
 	public boolean validateMessage3(byte[] message3) throws IOException, CoseException {
+		System.out.println("Responder Processing of Message 3\n");
+
 		// Decoding
 		CBORParser parser = factory.createParser(message3);
 		byte[] CIPHERTEXT_3 = nextByteArray(parser);
@@ -203,7 +210,6 @@ public class Responder {
 		byte[] K_3ae_info = makeInfo(new byte[]{algorithmID}, K_L, outer_encrypt0.getProtectedAttributes().EncodeToBytes(), TH_3);
 		byte[] K_3ae = hkdf(K_L, PRK_3e2m, new byte[0], K_3ae_info);
 
-
 		System.out.println( "Responder K_3ae = " + printHexBinary(K_3ae) );
 
 		byte[] plaintext = outer_encrypt0.decrypt(K_3ae);
@@ -219,7 +225,6 @@ public class Responder {
 			signature[i-1] = plaintext[i];
 		}
 
-
 		Sign1Message M = (Sign1Message) Sign1Message.DecodeFromBytes(signature);
 		M.addAttribute(HeaderKeys.Algorithm, AlgorithmID.ECDSA_256.AsCBOR(), Attribute.DO_NOT_SEND); // ES256 over the curve P-256
 
@@ -229,7 +234,7 @@ public class Responder {
 
 		System.out.println( "External data = " + printHexBinary(external));
 		System.out.println( "Received signature = " + printHexBinary(signature));
-		System.out.println( "Signature is valid: " + M.validate(new OneKey(initiatorPk, null)) );
+		System.out.println( "Signature is valid: " + M.validate(new OneKey(initiatorPk, null)) + "\n" );
 
 		return true;
 	}
