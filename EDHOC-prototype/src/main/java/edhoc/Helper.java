@@ -159,4 +159,11 @@ public class Helper {
 		MessageDigest md = getSHA256Instance();
 		return md.digest(data);
 	}
+
+	public static void printlnOnRead(String msg) {
+		try {
+			System.in.read();
+		} catch (IOException _) {}
+		System.out.println(msg);
+	}
 }
