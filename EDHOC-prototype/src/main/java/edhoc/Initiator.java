@@ -31,10 +31,13 @@ public class Initiator {
 	private ECDiffieHellman dh;
 	private final CBORFactory factory = new CBORFactory();
 
-	public Initiator(ECDiffieHellman dh) {
+	KeyPair signatureKeyPair;
+	PublicKey responderPk;
+	public Initiator(ECDiffieHellman dh, KeyPair signatureKeyPair, PublicKey responderPk) {
 		methodCorr = 4 * method + corr;
 		this.dh = dh;
-
+		this.signatureKeyPair = signatureKeyPair;
+		this.responderPk = responderPk;
 		keyPair = dh.generateKeyPair();
 		System.out.println("Initiator chooses random value " + printHexBinary(keyPair.getPrivate().getEncoded()));
 	}
