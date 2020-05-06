@@ -95,8 +95,6 @@ public class Responder {
 		// suite 2: hash function = SHA-256
 	
 		// byte[] th2 = sha256Hashing(concat(message1, data2)); 
-
-
 			
 		// Compute an inner COSE_Encrypt0 as defined in Section 5.3 of [RFC8152], with 
 		// the EDHOC AEAD algorithm in the selected cipher suite, K_2m, IV_2m and the following parameters:
@@ -108,10 +106,22 @@ public class Responder {
 			// Key K = K_2m
 			// Nonce N = IV_2m
 			// Plaintext P = 0x (the empty string)
-			// Associated data A = ["Encrypt0", <<ID_CRED_R>>,<<TH_2, CRED_R, ? AD_2 >>]
+			// Associated data A = ["Encrypt0", <<ID_CRED_R>>, <<TH_2, CRED_R, ? AD_2 >>]
 
 			// MAC_2 is the 'ciphertext' of the inner COSE_Encrypt0
 		
+		// EDHOC AEAD algorithm = AES-CCM-16-64-128
+		// K_2m is the output of HKDF-Expand(PRK_3e2m, info, L)
+		// IV_2m is calculated from K_2m, see B.3.4.1.1
+
+		// B.3.4.1.1
+		// PRK_2e = HMAC-SHA-256(salt, G_XY)
+		// Since this is the asymmetric case, salt is the empty byte string
+		// G_XY is the ECDH shared secret
+
+
+
+
 		// If the Responder authenticates with a static Diffie-Hellman key (method equals 1 or 3),
 		// then Signature_or_MAC_2 is MAC_2.
 
@@ -124,9 +134,10 @@ public class Responder {
 				// AlgorithmID = "XOR-ENCRYPTION", keyDataLength = plaintext length, 
 				// protected = h''(empty bstr) and other = TH_2 
 
+				// see more in B.3.4.2
+
 		byte[] data2 = createData2();
 		byte[] cipherText2 = createCipherText2(message1, data2);
-
 
 
 
