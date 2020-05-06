@@ -29,6 +29,7 @@ public class Responder {
 	byte[] G_XY;
 
 	byte[] ID_CRED_R = new byte[]{0x14};
+	byte[] ID_CRED_I = new byte[]{0x23};
 
 	KeyPair signatureKeyPair;
 	byte[] CRED_R;

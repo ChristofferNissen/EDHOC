@@ -8,9 +8,17 @@ import java.io.IOException;
 import com.fasterxml.jackson.dataformat.cbor.CBORFactory;
 import com.fasterxml.jackson.dataformat.cbor.CBORGenerator;
 import com.fasterxml.jackson.dataformat.cbor.CBORParser;
+import com.upokecenter.cbor.CBORObject;
+
+import COSE.AlgorithmID;
+import COSE.Attribute;
+import COSE.CoseException;
+import COSE.HeaderKeys;
+import COSE.OneKey;
+import COSE.Sign1Message;
 
 import static javax.xml.bind.DatatypeConverter.printHexBinary;
-import static edhoc.Helper.nextByteArray;
+import static edhoc.Helper.*;
 
 public class Initiator {
 	int methodCorr; // Method and correlation as a single value (specified in message_1)
@@ -27,10 +35,14 @@ public class Initiator {
 	int corr = 3; // transport provides a correlation mechanism that enables both parties to correlate all three messages
 	int suite = 2; // (AES-CCM-16-64-128, SHA-256, P-256, ES256, P-256, AES-CCM-16-64-128, SHA-256)
 	int c_i = 5; // bstr / int
+
+	byte[] ID_CRED_R = new byte[]{0x14};
+	byte[] ID_CRED_I = new byte[]{0x23};
 	private KeyPair keyPair; // Pair of values for G_X and the private component
 	private ECDiffieHellman dh;
 	private final CBORFactory factory = new CBORFactory();
-
+	byte[] G_XY = null;
+	byte[] message1 = null;
 	KeyPair signatureKeyPair;
 	PublicKey responderPk;
 	public Initiator(ECDiffieHellman dh, KeyPair signatureKeyPair, PublicKey responderPk) {
@@ -75,26 +87,71 @@ public class Initiator {
 		generator.writeBinary(pk.getEncoded());
 		generator.writeNumber(c_i);
 		generator.close();
+
+		message1 = stream.toByteArray();
 		
-		return stream.toByteArray();
+		return message1;
 	}
 
 	// Receive message 2, make and return message 3
-	public byte[] createMessage3(byte[] message2) throws IOException {
+	public byte[] createMessage3(byte[] message2) throws IOException, CoseException{
 		// Decoding
 		CBORParser parser = factory.createParser(message2);
 		byte[] pk = nextByteArray(parser);
 		int c_r = parser.nextIntValue(-1);
-		Object cipherText = nextCipherText2(parser);
+		byte[] CIPHERTEXT_2 = nextByteArray(parser);
 		parser.close();
 
-		byte[] sharedSecret = dh.generateSecret(keyPair.getPrivate(), dh.decodePublicKey(pk));
-		System.out.println("Initiator has shared secret: " + printHexBinary(sharedSecret));
+		G_XY = dh.generateSecret(keyPair.getPrivate(), dh.decodePublicKey(pk));
+		System.out.println("Initiator has shared secret: " + printHexBinary(G_XY));
+		
+		byte[] data2 = createData2(c_r, pk);
+		byte[] TH_2 = SHA256(concat(message1, data2));
+		byte[] PRK_2e = HMAC_SHA256(G_XY, new byte[0]); // Salt is empty since we authenticate using asymmetric keys
+
+		byte[] K_2e_info = makeInfo("XOR-ENCRYPTION", CIPHERTEXT_2.length, TH_2);
+		byte[] K_2e = hkdf(CIPHERTEXT_2.length, PRK_2e, new byte[0], K_2e_info);
+
+		byte[] plaintext = xor(K_2e, CIPHERTEXT_2);
+
+		System.out.println("Initiator has plaintext = " + printHexBinary(plaintext) );
+
+		System.out.println("Correctly identified the other party: " + (plaintext[0] == ID_CRED_R[0]) );
+		byte[] CRED_R = responderPk.getEncoded();
+		System.out.println("Initator connects " + printHexBinary(ID_CRED_R) + " to key " + printHexBinary(CRED_R));
+
+		byte[] signature = new byte[plaintext.length-1];
+		for (int i = 1; i < plaintext.length; ++i) {
+			signature[i-1] = plaintext[i];
+		}
+
+		Sign1Message M = (Sign1Message) Sign1Message.DecodeFromBytes(signature);
+		M.addAttribute(HeaderKeys.Algorithm, AlgorithmID.ECDSA_256.AsCBOR(), Attribute.DO_NOT_SEND); // ES256 over the curve P-256
+
+		byte[] external = concat(TH_2, CRED_R);
+		M.setExternal( external ); // external_aad = << TH_2, CRED_R >>
+
+		System.out.println( "External data = " + printHexBinary(external));
+		System.out.println( "Received signature = " + printHexBinary(signature));
+		System.out.println( "Signature is valid: " + M.validate(new OneKey(responderPk, null)) );
+		
+
+		byte[] TH_3 = SHA256(concat(TH_2, CIPHERTEXT_2));
+
 
 		// Validation
-		if (validate(pk, c_r, cipherText) == false) return null;
+		if (validate(pk, c_r, CIPHERTEXT_2) == false) return null;
 	
 		return createMessage3();	
+	}
+
+	private byte[] createData2(int c_r, byte[] pk) throws IOException {
+		ByteArrayOutputStream stream = new ByteArrayOutputStream();
+		CBORGenerator generator = factory.createGenerator(stream);
+		generator.writeBinary(pk);
+		generator.writeNumber(c_r);
+		generator.close();
+		return stream.toByteArray();
 	}
 
 	// message_3 = (
