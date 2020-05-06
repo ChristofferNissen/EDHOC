@@ -57,6 +57,12 @@ public class Initiator {
 		System.out.println("Setting up Initiator before protocol..");
 		System.out.println("Initiator chooses random value " + printHexBinary(keyPair.getPrivate().getEncoded()) + "\n");
 		CRED_I = signatureKeyPair.getPublic().getEncoded();
+
+		PublicKey pk = keyPair.getPublic();
+		System.out.println("	Initiator public key ");
+		System.out.println(pk);
+		System.out.println();
+		Helper.printlnOnRead("	Emphemeral ECDH key pair constructed");
 	}
 
 	// The Initiator SHALL compose message_1 as follows:
@@ -83,11 +89,11 @@ public class Initiator {
 	public byte[] createMessage1() throws IOException {
 
 		System.out.println("Initiator Processing of Message 1\n");
-
-		// Encode and send
 		PublicKey pk = keyPair.getPublic();
-		System.out.println("Initiator public key " + pk);
 
+		Helper.printlnOnRead("	Cipher suite 2 selected");
+		
+		// Encode and send
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
 		CBORGenerator generator = factory.createGenerator(stream);
 		generator.writeNumber(methodCorr);
@@ -97,6 +103,7 @@ public class Initiator {
 		generator.close();
 
 		message1 = stream.toByteArray();
+		Helper.printlnOnRead("	CBOR Object created");
 		
 		return message1;
 	}
@@ -111,8 +118,10 @@ public class Initiator {
 		byte[] CIPHERTEXT_2 = nextByteArray(parser);
 		parser.close();
 
+		Helper.printlnOnRead("	message_2 decoded");
+		
 		G_XY = dh.generateSecret(keyPair.getPrivate(), dh.decodePublicKey(pk));
-		System.out.println("Initiator has shared secret: " + printHexBinary(G_XY));
+		Helper.printlnOnRead("	Initiator has shared secret: " + printHexBinary(G_XY));
 		
 		byte[] data2 = createData2(c_r, pk);
 		byte[] TH_2 = SHA256(concat(message1, data2));
@@ -123,11 +132,11 @@ public class Initiator {
 
 		byte[] plaintext = xor(K_2e, CIPHERTEXT_2);
 
-		System.out.println("Initiator has plaintext = " + printHexBinary(plaintext) );
+		Helper.printlnOnRead("	Initiator has plaintext = " + printHexBinary(plaintext) );
 
-		System.out.println("Correctly identified the other party: " + (plaintext[0] == ID_CRED_R[0]) );
+		Helper.printlnOnRead("	Correctly identified the other party: " + (plaintext[0] == ID_CRED_R[0]) );
 		byte[] CRED_R = responderPk.getEncoded();
-		System.out.println("Initator connects " + printHexBinary(ID_CRED_R) + " to key " + printHexBinary(CRED_R));
+		Helper.printlnOnRead("	Initator connects " + printHexBinary(ID_CRED_R) + " to key " + printHexBinary(CRED_R));
 
 		byte[] signature = new byte[plaintext.length-1];
 		for (int i = 1; i < plaintext.length; ++i) {
@@ -140,10 +149,11 @@ public class Initiator {
 		byte[] external = concat(TH_2, CRED_R);
 		M.setExternal( external ); // external_aad = << TH_2, CRED_R >>
 
-		System.out.println( "External data = " + printHexBinary(external));
-		System.out.println( "Received signature = " + printHexBinary(signature));
-		System.out.println( "Signature is valid: " + M.validate(new OneKey(responderPk, null)) + "\n" );
+		System.out.println( "	External data = " + printHexBinary(external));
+		System.out.println( "	Received signature = " + printHexBinary(signature));
+		System.out.println( "	Signature is valid: " + M.validate(new OneKey(responderPk, null)) + "\n" );
 		
+		Helper.printlnOnRead("	Signature validated");
 
 
 		System.out.println("Initiator Processing of Message 3\n");
@@ -184,6 +194,7 @@ public class Initiator {
 		// If the Initiator authenticates with a static Diffie-Hellman key (method equals 2 or 3)
 		// then the Signature_or_MAC_3 is MAC_3.
 		byte[] MAC_3 = inner.EncodeToBytes();
+		Helper.printlnOnRead("	inner COSE_Encrypt0 computed");
 
 		System.out.println("msg encoded = " + printHexBinary(MAC_3) );
 
@@ -221,13 +232,17 @@ public class Initiator {
 		outer.encrypt(K_3ae);
 
 		byte[] CIPHERTEXT_3 = outer.EncodeToBytes();
+		Helper.printlnOnRead("	CIPHERTEXT_3 computed");
 
 		// Encode message3 as a sequence of CBOR encoded data items as specified in Section 4.4.1
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
 		CBORGenerator generator = factory.createGenerator(stream);
 		generator.writeBinary(CIPHERTEXT_3);
 		generator.close();
-		return stream.toByteArray();
+		byte[] s = stream.toByteArray();
+
+		Helper.printlnOnRead("	message_3 encoded as CBOR");
+		return s;
 	}
 
 	private byte[] createData2(int c_r, byte[] pk) throws IOException {

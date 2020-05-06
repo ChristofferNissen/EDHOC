@@ -172,9 +172,9 @@ public class Helper {
 	}
 
 	public static void printlnOnRead(String msg) {
-		try {
-			System.in.read();
-		} catch (IOException _) {}
+		// try {
+		// 	System.in.read();
+		// } catch (IOException _) {}
 		System.out.println(msg);
 	}
 }

@@ -41,11 +41,13 @@ public class Responder {
 		c_r = 7; // Some perfectly random value
 		keyPair = dh.generateKeyPair();
 		System.out.println("Setting up Responder before protocol...");
-		System.out.println("Responder chooses random value " + printHexBinary(keyPair.getPrivate().getEncoded()) + "\n");
+		Helper.printlnOnRead("Responder chooses random value " + printHexBinary(keyPair.getPrivate().getEncoded()) + "\n");
 		this.dh = dh;
 		this.signatureKeyPair = signatureKeyPair;
 		this.initiatorPk = initiatorPk;
 		this.CRED_R = signatureKeyPair.getPublic().getEncoded();
+
+		Helper.printlnOnRead("	Responder public key " + keyPair.getPublic());
 	}
 
 	// message_2 = (
@@ -69,16 +71,18 @@ public class Responder {
 		int c_i = parser.nextIntValue(-1);
 		parser.close();
 
-		System.out.println("	Decoded message one successfully..");
-		System.out.println("	Cipher suite supported..");
-		System.out.println("	[SKIPPED] Pass AD_1 to the security application\n");
+		Helper.printlnOnRead("	Decoded message one successfully..");
+		Helper.printlnOnRead("	Cipher suite supported..");
+		Helper.printlnOnRead("	[SKIPPED] Pass AD_1 to the security application\n");
+
 
 		System.out.println("Responder Processing of Message 2\n");
 
-		System.out.println("Responder public key " + keyPair.getPublic());
+		Helper.printlnOnRead("	Omit C_I..");
+		Helper.printlnOnRead("	Connection identifier C_R " + c_r + " chosen");
 
 		G_XY = dh.generateSecret(keyPair.getPrivate(), dh.decodePublicKey(pk));
-		System.out.println("Responder has shared secret: " + printHexBinary(G_XY));
+		Helper.printlnOnRead("	Responder has shared secret: " + printHexBinary(G_XY));
 
 		if (validate1(methodCorr, suite, pk, c_i, G_XY) == false)
 			return null;
@@ -105,11 +109,13 @@ public class Responder {
 	private byte[] createCipherText2(byte[] message1, byte[] data2) throws IOException, CoseException {
 		TH_2 = SHA256(concat(message1, data2));
 
+		Helper.printlnOnRead("	Transcript Hash (TH_2) computed");
+
 		// Used to derive key and IV to encrypt message_2
 		byte[] PRK_2e = HMAC_SHA256(G_XY);
 		// Used to derive keys and produce a mac in message_2
 		byte[] PRK_3e2m = PRK_2e; // Since responder doesn't authenticate with a static DH key. 
-		int L = 64; // Since we use cipher suite 2
+		iont L = 64; // Since we use cipher suite 2
 		int IV_L = L / 8;
 		int K_2m_L = L / 4;
 
@@ -131,7 +137,9 @@ public class Responder {
 
 		byte[] MAC_2 = msg.EncodeToBytes();
 
-		System.out.println("msg encoded = " + printHexBinary(MAC_2) );
+		Helper.printlnOnRead("	COSE_Encrypt0 computed");
+
+		Helper.printlnOnRead("	msg encoded = " + printHexBinary(MAC_2));
 
 		Sign1Message M = new Sign1Message();
 		M.addAttribute(HeaderKeys.Algorithm, AlgorithmID.ECDSA_256.AsCBOR(), Attribute.DO_NOT_SEND); // ES256 over the curve P-256
@@ -145,25 +153,31 @@ public class Responder {
 		OneKey key = new OneKey(signatureKeyPair.getPublic(), signatureKeyPair.getPrivate());
 		M.sign(key);
 
-
 		byte[] signature = M.EncodeToBytes();
 		byte[] plaintext = concat(ID_CRED_R, signature);
 
-		System.out.println( "External data = " + printHexBinary(external));
-		System.out.println( "Responder signature = " + printHexBinary(signature));
-		System.out.println("Responder has plaintext = " + printHexBinary(plaintext) );
+		System.out.println( "	External data = " + printHexBinary(external));
+		System.out.println( "	Responder signature = " + printHexBinary(signature));
+		System.out.println( "	Responder has plaintext = " + printHexBinary(plaintext) );
 
 		byte[] K_2e_info = makeInfo("XOR-ENCRYPTION", plaintext.length, TH_2);
 		byte[] K_2e = hkdf(plaintext.length, PRK_2e, new byte[0], K_2e_info);
 
 		CIPHERTEXT_2 = xor(K_2e, plaintext);
 
+		Helper.printlnOnRead("	MAC_2 selected as Signature_or_MAC_2 due to method equals 1 or 3");
+		Helper.printlnOnRead("	CIPHERTEXT_2 computed");
+
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
 		CBORGenerator generator = factory.createGenerator(stream);
 		generator.writeBinary(CIPHERTEXT_2);
 		generator.close();
 
-		return stream.toByteArray();
+		byte[] s = stream.toByteArray();
+
+		Helper.printlnOnRead("	message_2 encoded as CBOR");
+
+		return s;
 	}
 
 	private boolean validate1(int methodCorr, int suite, byte[] pkBytes, int c_i, byte[] sharedSecret) {
@@ -200,7 +214,7 @@ public class Responder {
 
 		outer_encrypt0.setExternal(TH_3);
 
-		System.out.println( AlgorithmID.AES_CCM_16_64_128.getTagSize() );
+		// System.out.println( AlgorithmID.AES_CCM_16_64_128.getTagSize() );
 
 		byte[] IV_3ae_info = makeInfo("IV-GENERATION", AES_CCM_16_IV_LENGTH, outer_encrypt0.getProtectedAttributes().EncodeToBytes(), TH_3);
 		byte[] IV_3ae = hkdf(AES_CCM_16_IV_LENGTH, PRK_3e2m, new byte[0], IV_3ae_info);
@@ -210,15 +224,15 @@ public class Responder {
 		byte[] K_3ae_info = makeInfo(new byte[]{algorithmID}, K_L, outer_encrypt0.getProtectedAttributes().EncodeToBytes(), TH_3);
 		byte[] K_3ae = hkdf(K_L, PRK_3e2m, new byte[0], K_3ae_info);
 
-		System.out.println( "Responder K_3ae = " + printHexBinary(K_3ae) );
+		Helper.printlnOnRead( "	Responder K_3ae = " + printHexBinary(K_3ae) );
 
 		byte[] plaintext = outer_encrypt0.decrypt(K_3ae);
 
-		System.out.println( "Responder gets plaintext = " + printHexBinary(plaintext) );
+		Helper.printlnOnRead( "	Responder gets plaintext = " + printHexBinary(plaintext) );
 
-		System.out.println("Correctly identified the other party: " + (plaintext[0] == ID_CRED_I[0]) );
+		Helper.printlnOnRead( "	Correctly identified the other party: " + (plaintext[0] == ID_CRED_I[0]) );
 		byte[] CRED_R = initiatorPk.getEncoded();
-		System.out.println("Responder connects " + printHexBinary(ID_CRED_I) + " to key " + printHexBinary(CRED_R));
+		Helper.printlnOnRead( "	Responder connects " + printHexBinary(ID_CRED_I) + " to key " + printHexBinary(CRED_R));
 
 		byte[] signature = new byte[plaintext.length-1];
 		for (int i = 1; i < plaintext.length; ++i) {
@@ -232,9 +246,9 @@ public class Responder {
 		byte[] external = concat(TH_3, CRED_I);
 		M.setExternal( external ); // external_aad = << TH_2, CRED_R >>
 
-		System.out.println( "External data = " + printHexBinary(external));
-		System.out.println( "Received signature = " + printHexBinary(signature));
-		System.out.println( "Signature is valid: " + M.validate(new OneKey(initiatorPk, null)) + "\n" );
+		System.out.println( "	External data = " + printHexBinary(external));
+		System.out.println( "	Received signature = " + printHexBinary(signature));
+		System.out.println( "	Signature is valid: " + M.validate(new OneKey(initiatorPk, null)) + "\n" );
 
 		return true;
 	}

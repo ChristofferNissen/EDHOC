@@ -38,7 +38,7 @@ public class App {
             return;
         }
 
-        System.out.println("(message_one) Initiator sends: " + printHexBinary(message1) + "\n");
+        System.out.println("    Initiator sends (" + message1.length + " bytes" +"): " + printHexBinary(message1) + "\n");
 
         byte[] message2 = responder.createMessage2(message1);
 
@@ -47,7 +47,7 @@ public class App {
             return;
         }
 
-        System.out.println("(message_two) Responder sends: " + printHexBinary(message2) + "\n");
+        System.out.println("    Responder sends (" + message2.length + " bytes" +"): " + printHexBinary(message2) + "\n");
 
         byte[] message3 = initiator.createMessage3(message2);
 
@@ -56,7 +56,7 @@ public class App {
             return;
         }
 
-        System.out.println("(message_three) Initiator sends: " + printHexBinary(message3) + "\n");
+        System.out.println("    Initiator sends (" + message3.length + " bytes" +"): " + printHexBinary(message3) + "\n");
 
         boolean valid = responder.validateMessage3(message3);
 
